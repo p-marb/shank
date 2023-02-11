@@ -5,6 +5,7 @@ public class Token {
         /* Very primitive types */
         IDENTIFIER,
         NUMBER,
+        DEFINE,
         ENDOFLINE,
 
         /* Definitions */
@@ -20,8 +21,6 @@ public class Token {
         BLOCK,
 
         WRITE,
-        COMMENT_BLOCK_L,
-        COMMENT_BLOCK_R,
 
         /* Operators */
         PLUS,
@@ -48,10 +47,21 @@ public class Token {
         NOT,
         THEN,
         UNTIL,
+
+        STRINGLITERAL,
+        CHARACTERLITERAL,
+        COMMENTBLOCK_L,
+        COMMENT, // to house the body of the comment
+        COMMENTBLOCK_R,
+        COLON,
+        SEMICOLON,
+        VAR,
+        INTEGER,
+        COMMA,
     }
 
-    private TokenType tokenType;
-    private String value;
+    private final TokenType tokenType;
+    private final String value;
 
     /**
      * Instantiates a Token to be used in lexing.

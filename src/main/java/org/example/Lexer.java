@@ -8,9 +8,10 @@ import java.util.Objects;
 public class Lexer {
 
     List<Token> tokenList = new ArrayList<>();
-    HashMap<String, Token.TokenType> knownWords = new HashMap<String, Token.TokenType>();
+    HashMap<Token.TokenType, String> knownWords = new HashMap<>();
     private String input;
     private int index = 0;
+    private static int lineCounter;
 
     /**
      * Instantiates a Lexer.
@@ -18,43 +19,57 @@ public class Lexer {
      */
     public Lexer(String input){
         this.input = input;
+        lineCounter++;
         initialize();
-        //this.knownWords.put("while")
     }
 
     /**
      * Helper function for initializing tokens and known words.
      */
     public void initialize(){
-        knownWords.put("variables", Token.TokenType.VARIABLES);
-        knownWords.put("constants", Token.TokenType.CONSTANTS);
+        knownWords.put(Token.TokenType.DEFINE, "define");
+        knownWords.put(Token.TokenType.VARIABLES, "variables");
+        knownWords.put(Token.TokenType.CONSTANTS, "constants");
 
-        knownWords.put("if", Token.TokenType.IF);
-        knownWords.put("while", Token.TokenType.WHILE);
-        knownWords.put("for", Token.TokenType.FOR);
-        knownWords.put("from", Token.TokenType.FROM);
-        knownWords.put("to", Token.TokenType.TO);
-        knownWords.put("repeat", Token.TokenType.REPEAT);
-        knownWords.put("block", Token.TokenType.BLOCK);
-        knownWords.put("then", Token.TokenType.THEN);
-        knownWords.put("until", Token.TokenType.UNTIL);
+        knownWords.put(Token.TokenType.IF, "if");
+        knownWords.put(Token.TokenType.WHILE, "while");
+        knownWords.put(Token.TokenType.FOR, "for");
+        knownWords.put(Token.TokenType.FROM, "from");
+        knownWords.put(Token.TokenType.TO, "to");
+        knownWords.put(Token.TokenType.REPEAT, "repeat");
+        knownWords.put(Token.TokenType.BLOCK, "block");
+        knownWords.put(Token.TokenType.THEN, "then");
+        knownWords.put(Token.TokenType.UNTIL, "until");
+        knownWords.put(Token.TokenType.NOT, "not");
+        knownWords.put(Token.TokenType.VAR, "var");
+        knownWords.put(Token.TokenType.INTEGER, "integer");
 
-        knownWords.put("write", Token.TokenType.WRITE);
-        knownWords.put("{", Token.TokenType.COMMENT_BLOCK_L);
-        knownWords.put("}", Token.TokenType.COMMENT_BLOCK_R);
+        knownWords.put(Token.TokenType.WRITE, "write");
 
-        knownWords.put("+", Token.TokenType.PLUS);
-        knownWords.put("-", Token.TokenType.MINUS);
-        knownWords.put("*", Token.TokenType.MULTIPLY);
-        knownWords.put("/", Token.TokenType.DIVIDE);
-        knownWords.put("mod", Token.TokenType.MODULUS);
-        knownWords.put(":=", Token.TokenType.ASSIGNER);
-        knownWords.put("=", Token.TokenType.EQUALS);
-        knownWords.put("<>", Token.TokenType.NOT_EQUAL);
-        knownWords.put("<", Token.TokenType.LESS_THAN);
-        knownWords.put("<=", Token.TokenType.LESS_OR_EQUAL);
-        knownWords.put(">", Token.TokenType.GREATER_THAN);
-        knownWords.put(">=", Token.TokenType.GREATER_OR_EQUAL);
+        knownWords.put(Token.TokenType.STRINGLITERAL, "\"");
+        knownWords.put(Token.TokenType.CHARACTERLITERAL, "\'");
+        knownWords.put(Token.TokenType.COMMA, ",");
+        knownWords.put(Token.TokenType.PARENTHESIS_R, ")");
+        knownWords.put(Token.TokenType.PARENTHESIS_L, "(");
+        knownWords.put(Token.TokenType.COMMENTBLOCK_L, "{");
+        knownWords.put(Token.TokenType.COMMENTBLOCK_R, "}");
+
+        knownWords.put(Token.TokenType.PLUS, "+");
+        knownWords.put(Token.TokenType.MINUS, "-");
+        knownWords.put(Token.TokenType.MULTIPLY, "*");
+        knownWords.put(Token.TokenType.DIVIDE, "/");
+        knownWords.put(Token.TokenType.MODULUS, "mod");
+        knownWords.put(Token.TokenType.ASSIGNER, ":=");
+        knownWords.put(Token.TokenType.NOT_EQUAL, "<>");
+        knownWords.put(Token.TokenType.LESS_OR_EQUAL, "<=");
+        knownWords.put(Token.TokenType.GREATER_OR_EQUAL, ">=");
+        knownWords.put(Token.TokenType.EQUALS, "=");
+        knownWords.put(Token.TokenType.LESS_THAN, "<");
+        knownWords.put(Token.TokenType.GREATER_THAN, ">");
+        knownWords.put(Token.TokenType.COLON, ":");
+        knownWords.put(Token.TokenType.SEMICOLON, ";");
+
+
     }
 
     /**
@@ -64,9 +79,9 @@ public class Lexer {
         NONE,
         WORD,
         NUMBER,
-        OPERATOR,
         STRINGLITERAL, // Strings "this is a string"
-        CHARACTERLITERAL // Characters 'c'
+        CHARACTERLITERAL, // Characters 'c'
+        COMMENT
     }
 
     public void lex() throws LexerException {
@@ -84,19 +99,23 @@ public class Lexer {
                     else if(Character.isDigit(c))
                         // If the character is a number
                         currentState = LexState.NUMBER;
-                    else if(c == '"')
+                    else if(c == knownWords.get(Token.TokenType.STRINGLITERAL).charAt(0))
                         // If the character is a string literal ("")
                         currentState = LexState.STRINGLITERAL;
-                    else if(c == '\'')
+                    else if(c == knownWords.get(Token.TokenType.CHARACTERLITERAL).charAt(0))
                         // If the character is a character literal ('')
                         currentState = LexState.CHARACTERLITERAL;
-
-                    else
+                    else if(c == knownWords.get(Token.TokenType.COMMENTBLOCK_L).charAt(0))
+                        currentState = LexState.COMMENT;
+                    else if (tryMatch(c))
+                        currentState = LexState.NONE;
+                    else if (Character.isWhitespace(c))
                         index++;
+                    else
+                        throw new LexerException(errorMessage(c, index));
                     break;
                 case WORD:
                     // Words can contain both numbers and letters.
-                    //TODO: Add a method for known words (for, mod, while, etc.)
                     if(Character.isLetterOrDigit(c)) {
 
                         // Read the word fully, then try and match it to a token.
@@ -125,21 +144,95 @@ public class Lexer {
                     }
 
                     break;
-                case OPERATOR:
-                    /**
-                    Token tok;
-                    if((tok = readOperatorFully(c)) != null){
-                        addToken(tok);
-
-                        currentState = LexState.NONE;
-                    } else {
-                        System.err.println("Error reading operator: " + c );
-                    }
-                     **/
+                case STRINGLITERAL:
+                    // Read until the next " is found
+                    String string = readUntil('\"', false);
+                    addToken(new Token(Token.TokenType.STRINGLITERAL, string));
+                    currentState = LexState.NONE;
+                    break;
+                case CHARACTERLITERAL:
+                    String character = readUntil('\'', false);
+                    addToken(new Token(Token.TokenType.CHARACTERLITERAL, character));
+                    currentState = LexState.NONE;
+                    break;
+                case COMMENT:
+                    addToken(new Token(Token.TokenType.COMMENTBLOCK_L, ""));
+                    String comment = readUntil('}', false);
+                    addToken(new Token(Token.TokenType.COMMENT, comment));
+                    currentState = LexState.NONE;
                     break;
 
             }
         }
+        addToken(new Token(Token.TokenType.ENDOFLINE, ""));
+    }
+
+    /**
+     * Generates an error message pointing to the problematic character.
+     * @param c the character to point to
+     * @param i the current index
+     * @return a string of the message
+     */
+    public String errorMessage(char c, int i){
+        String message = "Unknown symbol at line " + lineCounter + " index " + i + ":\n" +
+                input + "\n"; // Print the entire input line.
+        for(int j = 0; j < input.length(); j++) {
+            // Loop through until we find the problem char.
+            if (j == i) {
+                message += "^";
+            } else if(j > i){
+                message += "~";
+            }
+            message += " ";
+        }
+        message += "\n";
+        return message;
+    }
+
+    /**
+     * Helper function to try and match a token once all other available methods have been used.
+     * @param c the character to start matching from
+     * @return true if a match was found
+     */
+    public boolean tryMatch(char c){
+        // For each known word in the key set
+        int i = 0;
+            for (String knownWord : knownWords.values()) {
+                // Take length and see if the current input at index until index + length equals the known word
+                int len = knownWord.length();
+                // Make sure the word can fit before checking
+                if (index + len <= input.length()) {
+                    String str = input.substring(index, index + len);
+                    if (str.equals(knownWord)) {
+                        addToken(new Token(
+                                (Token.TokenType) knownWords.keySet().toArray()[i], str));
+                        index = index + len;
+                        return true;
+                    }
+                }
+                i++;
+            }
+
+        return false;
+    }
+
+    /**
+     * Helper function to read until a certain character is met.
+     * @param c - the character to read until
+     * @param include - whether to include the surrounding characters.
+     * @return - a string of what was read
+     */
+    public String readUntil(char c, boolean include){
+        int start = index;
+        while(index < input.length() && (input.charAt(index) != c)){
+            index++;
+        }
+        String read;
+        if(include)
+         read = input.substring(start, index+1);
+        else
+            read = input.substring(start+1, index);
+        return read;
     }
 
     /**
@@ -148,7 +241,7 @@ public class Lexer {
      */
     public void addToken(Token token){
         tokenList.add(token);
-        System.out.println("New token: " + token.toString());
+        System.out.println("New Token (L:" + lineCounter + " I:" + index + ") " + token.toString());
     }
 
     /**
@@ -158,12 +251,16 @@ public class Lexer {
      */
     private Token.TokenType matchWord(String word){
         // Loop through all the tokens that are defined.
-        for(String knownWord : knownWords.keySet()){
+        int i = 0;
+        for(String knownWord : knownWords.values()){
             // Check to see if word matches any of the known words (tokens).
             if(Objects.equals(knownWord, word)){
                 // Return the token type.
-                return knownWords.get(knownWord);
+
+                return
+                        (Token.TokenType) knownWords.keySet().toArray()[i];
             }
+            i++;
         }
         // No token could be matched.
         return null;
@@ -207,22 +304,6 @@ public class Lexer {
     private boolean isAlphanumeric(char c){
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || Character.isDigit(c);
     }
-
-    private boolean isOperator(char c){
-        return (c == ':');
-    }
-
-    private Token.TokenType matchOperator(char c){
-        // First, we must see if the character is >, < or :
-        for(String knownWord : knownWords.keySet()){
-            if(knownWord.length() == 1){
-                // We must check the next character in the stream, to correctly validate whether we are matching just
-                // > or >=, <>, etc.
-            }
-        }
-        return null;
-    }
-
     /**
      * LexerException class to handle any exceptions during lexical analysis.
      */

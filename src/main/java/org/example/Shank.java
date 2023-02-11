@@ -11,6 +11,7 @@ public class Shank {
     // Shank Lexer Main
     public static void main(String[] args){
         // Check commandline arguments.
+        System.out.println(args.length);
         if(args.length != 1){
             System.err.println("Error: you can only have 1 commandline argument.");
         } else {
