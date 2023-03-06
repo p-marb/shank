@@ -177,9 +177,26 @@ class FunctionNode extends Node {
         this.statements = statements;
     }
 
+    public String getName(){
+        return this.name;
+    }
+
+    public Collection<VariableNode> getParameters(){
+        return this.parameters;
+    }
+
+    public Collection<VariableNode> getConstAndVariables(){
+        return this.constAndVariables;
+    }
+
+    public Collection<StatementNode> getStatements(){
+        return this.statements;
+    }
+
     @Override
     public String toString(){
-        return "";
+        return "FunctionNode((name: " + getName() + "), (params: " + getParameters()
+                + "), (constants & variables: (" + getConstAndVariables() +")))";
     }
 
 }
@@ -193,6 +210,10 @@ class ProgramNode extends Node {
 
     @Override
     public String toString(){
-        return "";
+        String programNode = "(" + functions.size() + ")\n";
+        for(String functionNames : functions.keySet()){
+            programNode += "FUNCTION(" + functionNames + "): " + functions.get(functionNames) + "\n";
+        }
+        return programNode;
     }
 }

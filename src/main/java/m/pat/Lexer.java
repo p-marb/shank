@@ -45,6 +45,8 @@ public class Lexer {
         knownWords.put(Token.TokenType.VAR, "var");
         knownWords.put(Token.TokenType.INTEGER, "integer");
         knownWords.put(Token.TokenType.CHARACTER, "char");
+        knownWords.put(Token.TokenType.STRING, "string");
+        knownWords.put(Token.TokenType.BOOLEAN, "bool");
 
         knownWords.put(Token.TokenType.WRITE, "write");
 
@@ -97,7 +99,6 @@ public class Lexer {
         // Indentation/dedentation
         previousIndent = currentIndent;
         currentIndent = getIndentCount(line);
-        System.out.println("INDENT: " + currentIndent);
 
         // If there is more indentation than previous line
         if(currentIndent > previousIndent){
@@ -303,7 +304,7 @@ public class Lexer {
      */
     public void addToken(Token token){
         tokenList.add(token);
-        System.out.println("New Token (L:" + lineCounter + " I:" + index + ") " + token.toString() + " | STATE - " + currentState.name());
+        if(Shank.DEBUG) System.out.println("New Token (L:" + lineCounter + " I:" + index + ") " + token.toString() + " | STATE - " + currentState.name());
     }
 
     /**

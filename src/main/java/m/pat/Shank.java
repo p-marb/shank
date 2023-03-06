@@ -9,6 +9,8 @@ import java.util.List;
 
 public class Shank {
 
+    public static boolean DEBUG = false;
+
     // Shank Lexer Main
     public static void main(String[] args){
         // Check commandline arguments.
@@ -45,8 +47,12 @@ public class Shank {
                     if(errorCount == 0){
                         // Only move on if there are no errors in the lexical analysis.
                         Parser parser = new Parser(tokenList);
+                        ProgramNode programNode;
                         try{
-                            parser.parse();
+                            programNode = (ProgramNode) parser.parse();
+                            if(programNode != null){
+                                System.out.println("Got functions: " + programNode);
+                            }
                         } catch(SyntaxErrorException e){
                             e.printStackTrace();
                         }

@@ -57,6 +57,8 @@ public class Token {
         VAR,
         INTEGER,
         CHARACTER,
+        STRING,
+        BOOLEAN,
         COMMA,
         INDENT,
         DEDENT,
