@@ -314,14 +314,20 @@ public class Parser {
      * @return collection of VariableNodes that were found
      */
     public Collection<VariableNode> processDeclarations(boolean isConstants) throws SyntaxErrorException {
-        // format: (var) identifier (comma identifier...) colon type(integer/char/etc) (semicolon, repeat...)
+        // format for variable declarations:
+        // () = optional, [] = required.
+        // (var) [identifier] (comma identifier...) [colon/equal] [type/value] (semicolon, repeat...)
+
         Collection<VariableNode> declarations = new ArrayList<>();
         Token token;
         token = peek(0);
-        List<String> variableNames = new ArrayList<>(); // Used to keep track of variable names
+
+        // To keep track of multiple variable names, whether it is a var and value.
+        List<String> variableNames = new ArrayList<>();
         boolean var = false;
         String value;
 
+        // Scan until we reach ENDOFLINE or ).
         while(token.getTokenType() != Token.TokenType.ENDOFLINE && token.getTokenType() != Token.TokenType.PARENTHESIS_R) {
             switch (token.getTokenType()) {
                 case VAR:

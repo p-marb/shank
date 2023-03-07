@@ -177,19 +177,25 @@ public class Lexer {
                     // Read until the next " is found
                     String string = readUntil('\"', false);
                     if(string == null) {
+                        addToken(new Token(Token.TokenType.STRINGLITERAL, ""));
+                        index = index + 1;
                         currentState = LexState.NONE;
                         break;
                     }
                     addToken(new Token(Token.TokenType.STRINGLITERAL, string));
+                    index = index + 1;
                     currentState = LexState.NONE;
                     break;
                 case CHARACTERLITERAL:
                     String character = readUntil('\'', false);
                     if(character == null) {
+                        addToken(new Token(Token.TokenType.CHARACTERLITERAL, ""));
+                        index = index + 1;
                         currentState = LexState.NONE;
                         break;
                     }
                     addToken(new Token(Token.TokenType.CHARACTERLITERAL, character));
+                    index = index + 1;
                     currentState = LexState.NONE;
                     break;
                 case COMMENT:
@@ -268,11 +274,13 @@ public class Lexer {
         int start  = index;
         while(index < input.length()){
             index++;
-            if((index != input.length()) && input.charAt(index) == c){
-                if(include) {
-                    return input.substring(start, index + 1);
-                } else {
-                    return input.substring(start+1, index);
+            if((index != input.length())){
+                if(input.charAt(index) == c) {
+                    if (include) {
+                        return input.substring(start, index + 1);
+                    } else {
+                        return input.substring(start + 1, index);
+                    }
                 }
             }
         }
