@@ -14,3 +14,38 @@ pass the list of tokens to the parser to generate AST nodes and finally it will 
 
 Shank doesn't use any third party libraries to run Shank code. That means no lex library, no parse library, no interpreter library, etc. 
 This was the goal of this project as it was supposed to teach very thouroughly the ins and outs of programming language design. 
+
+## Sample code
+
+Here is a tiny example of Shank code, illustrating two different methods one being recursive the other being iterative. 
+``` python
+{ Recursive }
+define add (x,y : integer; var sum : integer)
+variables yMinusOne, xPlusOne, newSum : integer
+	{ in here, x and y are constant }
+	if y = 0 then
+		sum := x
+	else
+		xPlusOne := x + 1
+		yMinusOne := y - 1
+		add xPlusOne, yMinusOne, var newSum
+		sum := newSum
+
+{ Iterative }
+define add (x,y:integer, var sum: integer)
+variables counter : integer
+	counter := y
+	sum := x
+	while counter > 0
+		counter := counter - 1
+		sum := sum + 1
+
+
+{ To call one of the adds: }
+define start ()
+variables a,b,c : integer
+	a := 5
+	b := 6
+	add a,b,var c
+	{ in here, a & b are the original values, but c is whatever add sets sum to }
+```
