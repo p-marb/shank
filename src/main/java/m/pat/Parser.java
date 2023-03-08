@@ -96,14 +96,19 @@ public class Parser {
         System.out.println("Beginning parsing...");
         ProgramNode programNode;
         HashMap<String, FunctionNode> functions = new HashMap<>();
+
+        // Clear up any ENDOFLINE's that are present before code tokens.
+        expectsEndOfLine();
         Node node = function();
         while(node != null){
             if(node instanceof FunctionNode){
                 String name = ((FunctionNode) node).getName();
                 if(functions.containsKey(name)){
                     System.out.println("Duplicate function name! (" + name + ")");
+                    functions.replace(((FunctionNode) node).getName(), ((FunctionNode) node));
+                } else {
+                    functions.put(((FunctionNode) node).getName(), ((FunctionNode) node));
                 }
-                functions.put(((FunctionNode) node).getName(), ((FunctionNode) node));
                 if(Shank.DEBUG) System.out.println("Found function: " + node);
                 expectsEndOfLine();
                 node = function();
@@ -185,7 +190,8 @@ public class Parser {
     }
 
     /**
-     * Factor can be either an IntegerNode/FloatNode or MathOpNode.
+     * Factor can be either an IntegerNode/FloatNode or call
+     * expression() to build a MathOpNode.
      * @return IntegerNode/FloatNode or MathOpNode
      */
     public Node factor() {

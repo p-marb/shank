@@ -9,7 +9,7 @@ import java.util.List;
 
 public class Shank {
 
-    public static boolean DEBUG = false;
+    public static boolean DEBUG = true;
 
     // Shank Lexer Main
     public static void main(String[] args){

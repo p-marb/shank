@@ -75,6 +75,35 @@ class MathOpNode extends Node {
     }
 }
 
+enum BooleanComparison {
+    GREATER_THAN, LESS_THAN, GREATER_OR_EQUAL, LESS_OR_EQUAL, EQUALS, NOT_EQUALS
+}
+
+class BooleanCompareNode extends Node {
+
+    private BooleanComparison comparison;
+    private Node left, right;
+
+    BooleanCompareNode(BooleanComparison comparison, Node left, Node right){
+        this.comparison = comparison;
+        this.left = left;
+        this.right = right;
+    }
+    public BooleanComparison getComparison(){
+        return this.comparison;
+    }
+    public Node getLeft(){
+        return this.left;
+    }
+    public Node getRight(){
+        return this.right;
+    }
+    @Override
+    public String toString(){
+        return "";
+    }
+}
+
 // FUNCTIONS AND LOCAL VARIABLES
 
 class BooleanNode extends Node {
@@ -147,6 +176,26 @@ class VariableNode extends Node {
     @Override
     public String toString(){
         return "(" + name + ":" + type.toString() + ", const:" + isConstant + ")";
+    }
+}
+
+class VariableReferenceNode extends Node {
+
+    private String name;
+    private Node node;
+
+    VariableReferenceNode(String name){
+        this.name = name;
+    }
+
+    VariableReferenceNode(String name, Node node){
+        this.name = name;
+        this.node = node;
+    }
+
+    @Override
+    public String toString(){
+        return "VariableReferenceNode((name: " + name + "), (node: " + node.toString() + "))";
     }
 }
 
