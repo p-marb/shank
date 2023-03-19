@@ -182,20 +182,30 @@ class VariableNode extends Node {
 class VariableReferenceNode extends Node {
 
     private String name;
-    private Node node;
+    private Node index;
 
     VariableReferenceNode(String name){
         this.name = name;
+        this.index = null;
+        System.out.println("Create VarRefNode " + this);
     }
 
     VariableReferenceNode(String name, Node node){
         this.name = name;
-        this.node = node;
+        this.index = node;
+        System.out.println("Create VarRefNode " + this);
+    }
+
+    public void setIndex(Node node){
+        this.index = node;
     }
 
     @Override
-    public String toString(){
-        return "VariableReferenceNode((name: " + name + "), (node: " + node.toString() + "))";
+    public String toString() {
+        if (index != null)
+            return "VariableReferenceNode((name: " + name + "), (node: " + index.toString() + "))";
+        else
+            return "VariableReferenceNode(name: " + name + ")";
     }
 }
 
@@ -209,6 +219,20 @@ class StatementNode extends Node {
     public String toString(){
         return "";
     }
+}
+
+class AssignmentNode extends StatementNode {
+
+    private VariableReferenceNode target;
+    private Node value;
+
+    AssignmentNode(VariableReferenceNode target, Node value){
+        this.target = target;
+        this.value = value;
+    }
+
+    @Override
+    public String toString(){ return ""; }
 }
 
 class FunctionNode extends Node {

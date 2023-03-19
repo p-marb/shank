@@ -93,6 +93,30 @@ public class Token {
         return this.value;
     }
 
+    /**
+     * Helper function to determine whether token is a
+     * comparison token or not.
+     * @return BooleanComparison of compare type or null
+     */
+    public BooleanComparison isComparisonNode(){
+        switch(this.tokenType){
+            case EQUALS:
+                return BooleanComparison.EQUALS;
+            case NOT_EQUAL:
+                return BooleanComparison.NOT_EQUALS;
+            case GREATER_THAN:
+                return BooleanComparison.GREATER_THAN;
+            case GREATER_OR_EQUAL:
+                return BooleanComparison.GREATER_OR_EQUAL;
+            case LESS_THAN:
+                return BooleanComparison.LESS_THAN;
+            case LESS_OR_EQUAL:
+                return BooleanComparison.LESS_OR_EQUAL;
+            default:
+                return null;
+        }
+    }
+
     public String toString(){
         return getTokenType().name() + "(" + getValue() + ")";
     }

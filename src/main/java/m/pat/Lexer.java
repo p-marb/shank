@@ -28,6 +28,12 @@ public class Lexer {
      * Helper function for initializing tokens and known words.
      */
     public static void initialize(){
+
+        knownWords.put(Token.TokenType.ASSIGNER, ":=");
+        knownWords.put(Token.TokenType.NOT_EQUAL, "<>");
+        knownWords.put(Token.TokenType.LESS_OR_EQUAL, "<=");
+        knownWords.put(Token.TokenType.GREATER_OR_EQUAL, ">=");
+
         knownWords.put(Token.TokenType.DEFINE, "define");
         knownWords.put(Token.TokenType.VARIABLES, "variables");
         knownWords.put(Token.TokenType.CONSTANTS, "constants");
@@ -57,18 +63,12 @@ public class Lexer {
         knownWords.put(Token.TokenType.PARENTHESIS_L, "(");
         knownWords.put(Token.TokenType.COMMENTBLOCK_L, "{");
         knownWords.put(Token.TokenType.COMMENTBLOCK_R, "}");
-        knownWords.put(Token.TokenType.INDEX_L, "[");
-        knownWords.put(Token.TokenType.INDEX_R, "]");
 
         knownWords.put(Token.TokenType.PLUS, "+");
         knownWords.put(Token.TokenType.MINUS, "-");
         knownWords.put(Token.TokenType.MULTIPLY, "*");
         knownWords.put(Token.TokenType.DIVIDE, "/");
         knownWords.put(Token.TokenType.MODULUS, "mod");
-        knownWords.put(Token.TokenType.ASSIGNER, ":=");
-        knownWords.put(Token.TokenType.NOT_EQUAL, "<>");
-        knownWords.put(Token.TokenType.LESS_OR_EQUAL, "<=");
-        knownWords.put(Token.TokenType.GREATER_OR_EQUAL, ">=");
         knownWords.put(Token.TokenType.EQUALS, "=");
         knownWords.put(Token.TokenType.LESS_THAN, "<");
         knownWords.put(Token.TokenType.GREATER_THAN, ">");
@@ -219,28 +219,24 @@ public class Lexer {
         String message = "Unknown symbol '" + c + "' at line " + lineCounter + ", index " + i + ":\n"
                 + input + "\n";
 
-        try {
-            int indentLevel = getIndentCount(input);
-            for (int j = 0; j < indentLevel; j++) {
-                //message += "\t";
-            }
-
-            // Loop through the characters.
-
-            for (int inputChar = 0; inputChar < input.length(); inputChar++) {
-                char eachChar = input.charAt(inputChar);
-                if (eachChar == c)
-                    message += "^";
-                else if (i == inputChar)
-                    message += "^";
-                else message += "~";
-            }
-            message += "\n";
-            return message;
-        } catch(LexerException e){
-            e.printStackTrace();
+        int indentLevel = getIndentCount(input);
+        for(int j = 0; j < indentLevel; j++){
+            message+= "\t";
         }
-        return null;
+
+        // Loop through the characters.
+
+        for(int inputChar = 0; inputChar < input.length(); inputChar++) {
+            char eachChar = input.charAt(inputChar);
+            if(eachChar == c)
+                message += "^";
+            else if(i == inputChar)
+                message += "^";
+            else if(inputChar != i-1) // This took a while to get right. For alignment purposes.
+                message += "~";
+        }
+        message += "\n";
+        return message;
     }
 
     /**
@@ -251,7 +247,15 @@ public class Lexer {
     public boolean tryMatch(char c){
         // For each known word in the key set
         int i = 0;
+        // Not sure why, but I need this special case just for :=
+        if(index+2 < input.length() && c == ':' && input.charAt(index+1) == '='){
+            addToken(new Token(Token.TokenType.ASSIGNER, ""));
+            index = index + 2;
+            return true;
+        }
+
             for (String knownWord : knownWords.values()) {
+
                 // Take length and see if the current input at index until index + length equals the known word
                 int len = knownWord.length();
                 // Make sure the word can fit before checking
@@ -388,35 +392,22 @@ public class Lexer {
      * @param s the string to analyze.
      * @return the amount of indentation.
      */
-    public int getIndentCount(String s) throws LexerException {
+    public int getIndentCount(String s){
         int count = 0;
-        int i = 0;
-        while (i < s.length()) {
+        for(int i = 0; i < s.length(); i++){
             char c = s.charAt(i);
-            if (c == '\t') {
+            if(c == '\t'){
                 count++;
-                i++;
-            } else if (c == ' ') {
-                int spaces = 0;
-                while (i < s.length() && s.charAt(i) == ' ') {
-                    spaces++;
-                    i++;
+            } else if(c == ' '){
+                if(i+4 < s.length()){
+                    if(s.substring(i, i+4) == "    "){
+                        count++;
+                    }
                 }
-                if (spaces % 4 == 0) {
-                    count += spaces / 4;
-                } else if (spaces % 8 == 0) {
-                    count += spaces / 8 * 2;
-                } else {
-                    throw new LexerException("Invalid amount of indentation (must be 4 spaces or 1 tab)");
-                }
-            } else {
-                // handle invalid character
-                break;
             }
         }
         return count;
     }
-
 
     /**
      * Returns the list of tokens generated.
