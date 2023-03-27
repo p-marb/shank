@@ -39,6 +39,8 @@ public class Lexer {
         knownWords.put(Token.TokenType.CONSTANTS, "constants");
 
         knownWords.put(Token.TokenType.IF, "if");
+        knownWords.put(Token.TokenType.ELSIF, "elsif");
+        knownWords.put(Token.TokenType.ELSE, "else");
         knownWords.put(Token.TokenType.WHILE, "while");
         knownWords.put(Token.TokenType.FOR, "for");
         knownWords.put(Token.TokenType.FROM, "from");
@@ -63,6 +65,9 @@ public class Lexer {
         knownWords.put(Token.TokenType.PARENTHESIS_L, "(");
         knownWords.put(Token.TokenType.COMMENTBLOCK_L, "{");
         knownWords.put(Token.TokenType.COMMENTBLOCK_R, "}");
+        knownWords.put(Token.TokenType.INDEX_L, "[");
+        knownWords.put(Token.TokenType.INDEX_R, "]");
+
 
         knownWords.put(Token.TokenType.PLUS, "+");
         knownWords.put(Token.TokenType.MINUS, "-");

@@ -42,6 +42,8 @@ public class Token {
         PARENTHESIS_L, //(
         PARENTHESIS_R, //)
         IF,
+        ELSIF,
+        ELSE,
         AND,
         OR,
         NOT,

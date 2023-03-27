@@ -182,6 +182,11 @@ class VariableNode extends Node {
 class VariableReferenceNode extends Node {
 
     private String name;
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
     private Node index;
 
     VariableReferenceNode(String name){
@@ -203,7 +208,7 @@ class VariableReferenceNode extends Node {
     @Override
     public String toString() {
         if (index != null)
-            return "VariableReferenceNode((name: " + name + "), (node: " + index.toString() + "))";
+            return "VariableReferenceNode((name: " + name + ", (node: " + index.toString() + "))";
         else
             return "VariableReferenceNode(name: " + name + ")";
     }
@@ -221,6 +226,125 @@ class StatementNode extends Node {
     }
 }
 
+class IfNode extends StatementNode {
+    private BooleanCompareNode condition;
+    private Collection<StatementNode> statements;
+    private IfNode nextIf;
+
+    IfNode(BooleanCompareNode condition, Collection<StatementNode> statements){
+        this.condition = condition;
+        this.statements = statements;
+    }
+
+    IfNode(BooleanCompareNode condition, Collection<StatementNode> statements, IfNode nextIf){
+        this.condition = condition;
+        this.statements = statements;
+        this.nextIf = nextIf;
+    }
+
+    public BooleanCompareNode getCondition(){
+        return this.condition;
+    }
+
+    public Collection<StatementNode> getStatements(){
+        return this.statements;
+    }
+}
+
+class WhileNode extends StatementNode {
+    private BooleanCompareNode condition;
+    private Collection<StatementNode> statements;
+
+    WhileNode(BooleanCompareNode condition, Collection<StatementNode> statements){
+        this.condition = condition;
+        this.statements = statements;
+    }
+
+    public BooleanCompareNode getCondition(){
+        return this.condition;
+    }
+
+    public Collection<StatementNode> getStatements(){
+        return this.statements;
+    }
+}
+
+class RepeatNode extends StatementNode {
+    private BooleanComparison condition;
+    private Collection<StatementNode> statements;
+
+    RepeatNode(BooleanComparison condition, Collection<StatementNode> statements){
+        this.condition = condition;
+        this.statements = statements;
+    }
+
+    public BooleanComparison getCondition(){
+        return this.condition;
+    }
+
+    public Collection<StatementNode> getStatements(){
+        return this.statements;
+    }
+}
+
+class ForNode extends StatementNode {
+    private Node from;
+    private Node to;
+
+    ForNode(Node from, Node to){
+        this.from = from;
+        this.to = to;
+    }
+
+
+}
+
+class FunctionCallNode extends StatementNode {
+    private String name;
+    private Collection<ParameterNode> parameters;
+
+    FunctionCallNode(String name, Collection<ParameterNode> parameters){
+        this.name = name;
+        this.parameters = parameters;
+    }
+
+    @Override
+    public String toString(){
+        return "";
+    }
+
+    public Collection<ParameterNode> getParameters() {
+        return parameters;
+    }
+
+    public String getName() {
+        return name;
+    }
+}
+
+class ParameterNode extends StatementNode {
+    private VariableReferenceNode variableRef;
+    private Node node;
+
+    ParameterNode(VariableReferenceNode variableRef, Node node){
+        this.variableRef = variableRef;
+        this.node = node;
+    }
+
+
+    @Override
+    public String toString(){
+        return "";
+    }
+
+    public VariableReferenceNode getVariableRef() {
+        return variableRef;
+    }
+
+    public Node getNode() {
+        return node;
+    }
+}
 class AssignmentNode extends StatementNode {
 
     private VariableReferenceNode target;
@@ -232,7 +356,7 @@ class AssignmentNode extends StatementNode {
     }
 
     @Override
-    public String toString(){ return ""; }
+    public String toString(){ return "AssignmentNode(target: " + target + ", value: " + value + ")"; }
 }
 
 class FunctionNode extends Node {

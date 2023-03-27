@@ -109,7 +109,7 @@ public class Parser {
                 } else {
                     functions.put(((FunctionNode) node).getName(), ((FunctionNode) node));
                 }
-                if(Shank.DEBUG) System.out.println("Found function: " + node);
+                if(Shank.DEBUG) System.out.println("Found function: \n" + node + "\nStatements: " + ((FunctionNode) node).getStatements());
                 expectsEndOfLine();
                 node = function();
             }
@@ -371,12 +371,48 @@ public class Parser {
         // Create a variable reference node with the name of the identifier.
         VariableReferenceNode variableRefNode = new VariableReferenceNode(token.getValue());
         matchAndRemove(Token.TokenType.IDENTIFIER);
+        token = peek(0);
+        if(token.getTokenType() == Token.TokenType.INDEX_L){
 
-        // Parse any array indices present.
-        while((token = peek(0)) != null && token.getTokenType() == Token.TokenType.INDEX_L ){
             matchAndRemove(Token.TokenType.INDEX_L);
-            Node index = parseArrayIndex();
-            variableRefNode.setIndex(index);
+
+            // Parse any array indices present.
+            int indexCounter = 0;
+            while(token.getTokenType() != Token.TokenType.ASSIGNER ){
+                switch(token.getTokenType()){
+                    case IDENTIFIER -> {
+                        // Nested array identifier.
+                        variableRefNode.setName(token.getValue());
+                        matchAndRemove(Token.TokenType.IDENTIFIER);
+                        token = peek(0);
+                    }
+                    case NUMBER -> {
+                        // Array index.
+                        // Check if number is floating point.
+                        if(token.getValue().contains(".")){
+                            throw new SyntaxErrorException("Array index cannot be a floating point.");
+                        } else {
+                            // Set the variable reference node index to the array index specified.
+                            variableRefNode.setIndex(new IntegerNode(Integer.parseInt(token.getValue())));
+                            matchAndRemove(Token.TokenType.NUMBER);
+                            token = peek(0);
+                        }
+                    }
+                    case INDEX_L -> {
+                        indexCounter++;
+                        matchAndRemove(Token.TokenType.INDEX_L);
+                        token = peek(0);
+                    }
+                    case INDEX_R -> {
+                        indexCounter--;
+                        matchAndRemove(Token.TokenType.INDEX_R);
+                        token = peek(0);
+                    }
+                    default -> throw new SyntaxErrorException("Unexpected token found while processing array: " + token);
+                }
+                //Node index = parseArrayIndex();
+                //variableRefNode.setIndex(index);
+            }
         }
 
         // Make sure next token is assign token.
@@ -389,6 +425,8 @@ public class Parser {
         Node rightOperation = boolCompare();
 
         AssignmentNode assignmentNode = new AssignmentNode(variableRefNode, rightOperation);
+        System.out.println("Got assignment: " + assignmentNode);
+        expectsEndOfLine();
 
         return assignmentNode;
     }
@@ -424,21 +462,6 @@ public class Parser {
         }
 
         throw new SyntaxErrorException("Unexpected token, found: " + token);
-    }
-
-    /**
-     * Helper function to parse array indexes.
-     * @return the array index parsed
-     * @throws SyntaxErrorException if there was an error parsing the array
-     */
-    private Node parseArrayIndex() throws SyntaxErrorException {
-        Token token = peek(0);
-        Node indexNode = expression();
-        Token indexRight = peek(0);
-        if(indexRight.getTokenType() != Token.TokenType.INDEX_R){
-            throw new SyntaxErrorException("Expected a closing bracket ], found: " + indexRight);
-        }
-        return indexNode;
     }
 
     /**
@@ -612,25 +635,118 @@ public class Parser {
     }
 
     /**
-     * Processes list of statements.
-     * For now will read until indent level is back to zero,
-     * indicating that the function has ended.
-     * @return list of statements or null
-     * @throws SyntaxErrorException if processing statements failed
+     * Processes a for loop statement.
+     * Expects tokens FOR, IDENTIFIER, FROM, expression(), to, expression()
+     * @return a ForNode with the from and to nodes.
+     * @throws SyntaxErrorException if there were any unexpected tokens found or logic.
      */
-    public List<StatementNode> processStatements() throws SyntaxErrorException {
-        Token token;
-        System.out.println("Processing statements...");
-        int startCount = tokens.size();
-        matchAndRemove(Token.TokenType.INDENT);
-        token = peek(0);
-        while(token != null && indentLevel > 0){
-            matchAndRemove(token.getTokenType());
+    public ForNode parseFor() throws SyntaxErrorException {
+        Token token = peek(0);
+        if(token.getTokenType() == Token.TokenType.FOR){
+            matchAndRemove(Token.TokenType.FOR);
             token = peek(0);
+            if(token.getTokenType() == Token.TokenType.IDENTIFIER){
+                VariableReferenceNode variableReferenceNode =  new VariableReferenceNode(token.getValue());
+                matchAndRemove(Token.TokenType.IDENTIFIER);
+                token = peek(0);
+                if(token.getTokenType() == Token.TokenType.FROM){
+                    matchAndRemove(Token.TokenType.FROM);
+                    Node from = expression();
+                    token = peek(0);
+                    if(token.getTokenType() == Token.TokenType.TO){
+                        matchAndRemove(Token.TokenType.TO);
+                        Node to = expression();
+                        return new ForNode(from, to);
+                    } else {
+                        throw new SyntaxErrorException("Expected to token, found: " + token);
+                    }
+                } else {
+                    throw  new SyntaxErrorException("Expected from token, found: " + token);
+                }
+            } else {
+                throw new SyntaxErrorException("Expected an identifier, found: " + token);
+            }
+        } else {
+            throw new SyntaxErrorException("Expected a for loop statement, found: " + token);
         }
-        int endCount = startCount - tokens.size();
-        System.out.println("Removed " + endCount + " tokens.");
-        return null;
     }
+
+    /**
+     * Parses a while loop statement.
+     * Expects tokens WHILE, boolCompare(), statements()
+     * If there isn't any comparison condition, throws an
+     * error.
+     * @return WhileNode of statement parsed with the condition and statements.
+     * @throws SyntaxErrorException if no condition found or unexpected token
+     */
+    public WhileNode parseWhile() throws SyntaxErrorException {
+        Token token = peek(0);
+        if(token.getTokenType() == Token.TokenType.WHILE){
+            matchAndRemove(Token.TokenType.WHILE);
+            token = peek(0);
+            Node condition = boolCompare();
+            if(condition instanceof BooleanCompareNode) {
+                Collection<StatementNode> statements = statements();
+                return new WhileNode((BooleanCompareNode) condition, statements);
+            } else {
+                throw new SyntaxErrorException("Expected a condition for while loop, found: " + token);
+            }
+        } else {
+            throw  new SyntaxErrorException("Expected a while loop statement, found: " + token);
+        }
+    }
+
+    /**
+     * Parses an if statement.
+     *
+     * @return
+     * @throws SyntaxErrorException
+     */
+    public IfNode parseIf() throws SyntaxErrorException {
+        Token token = peek(0);
+        if(token.getTokenType() == Token.TokenType.IF) {
+            matchAndRemove(Token.TokenType.IF);
+            // Expect boolCompare(), then token, statements
+            Node condition = boolCompare();
+            // Make sure condition is a BooleanCompareNode.
+            if(condition instanceof BooleanCompareNode) {
+                token = peek(0);
+                if(token.getTokenType() == Token.TokenType.THEN) {
+                    Collection<StatementNode> statements = statements();
+                    IfNode nextIfNode = null;
+                    token = peek(0);
+                    switch(token.getTokenType()) {
+                        case ELSIF -> {
+                            matchAndRemove(Token.TokenType.ELSIF);
+                            nextIfNode = parseIf();
+                            return new IfNode((BooleanCompareNode) condition, statements, nextIfNode    );
+                        }
+                        case ELSE -> {
+                            matchAndRemove(Token.TokenType.ELSE);
+                            token = peek(0);
+                            if(token.getTokenType() == Token.TokenType.IF){
+                                matchAndRemove(Token.TokenType.IF);
+                                statements = statements();
+                                nextIfNode = parseIf();
+                                return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
+                            }
+                        }
+                    }
+                    nextIfNode = parseIf(); // Recursively parse the next IfNode.
+                    return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
+                } else {
+                    throw new SyntaxErrorException("Expected then token, found: " + token);
+                }
+            } else {
+                // Condition is null, end of IfNode chain.
+                return null;
+            }
+        } else {
+            // No more if statements, return null.
+            return null;
+        }
+    }
+
+
 
 }
