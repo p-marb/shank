@@ -71,7 +71,7 @@ class MathOpNode extends Node {
 
     @Override
     public String toString(){
-        return "(" + left.toString() + " " + operation + " " + right.toString() + ")";
+        return "MathOpNode(" + left.toString() + " " + operation + " " + right.toString() + ")";
     }
 }
 
@@ -249,6 +249,11 @@ class IfNode extends StatementNode {
     public Collection<StatementNode> getStatements(){
         return this.statements;
     }
+
+    @Override
+    public String toString(){
+        return "IfNode(condition: " + condition + ", statements: " + statements + ", nextIf: " + nextIf + ")";
+    }
 }
 
 class WhileNode extends StatementNode {
@@ -310,7 +315,7 @@ class FunctionCallNode extends StatementNode {
 
     @Override
     public String toString(){
-        return "";
+        return "FunctionCallNode(name: " + name + ", parameters: " + parameters + ")";
     }
 
     public Collection<ParameterNode> getParameters() {
@@ -331,10 +336,21 @@ class ParameterNode extends StatementNode {
         this.node = node;
     }
 
+    ParameterNode(VariableReferenceNode variableRef){
+        this.variableRef = variableRef;
+    }
+
+    ParameterNode (Node node){
+        this.node = node;
+    }
 
     @Override
     public String toString(){
-        return "";
+        if(variableRef == null){
+            // Assume Node is not null.
+            return "ParameterNode(node: " + node + ")";
+        }
+        return "ParameterNode(variableRef: " + variableRef + ")";
     }
 
     public VariableReferenceNode getVariableRef() {
@@ -345,6 +361,7 @@ class ParameterNode extends StatementNode {
         return node;
     }
 }
+
 class AssignmentNode extends StatementNode {
 
     private VariableReferenceNode target;
@@ -392,8 +409,9 @@ class FunctionNode extends Node {
 
     @Override
     public String toString(){
-        return "FunctionNode((name: " + getName() + "), (params: " + getParameters()
-                + "), (constants & variables: (" + getConstAndVariables() +")))";
+        return "FunctionNode(name: " + getName() + ", params: " + getParameters()
+                + ", constants & variables: (" + getConstAndVariables() +"), " +
+                "statements: " + statements.size() + ")";
     }
 
 }

@@ -50,6 +50,24 @@ public class Parser {
         return null;
     }
 
+    private Token expectsToken(Token.TokenType tokenType) throws SyntaxErrorException{
+        Token token = peek(0);
+        if(token != null) {
+            if (token.getTokenType() == tokenType) {
+                matchAndRemove(tokenType);
+                token = peek(0);
+
+                if (token != null && token.getTokenType() == tokenType) {
+                    expectsToken(tokenType);
+                }
+                return token;
+            }
+        } else {
+            return null;
+        }
+        throw new SyntaxErrorException("Expected " + tokenType.name() + " token not found. Found: " + token);
+    }
+
     /**
      * Checks if the next token is an end of line.
      * Returns ENDOFLINE token or
@@ -109,7 +127,7 @@ public class Parser {
                 } else {
                     functions.put(((FunctionNode) node).getName(), ((FunctionNode) node));
                 }
-                if(Shank.DEBUG) System.out.println("Found function: \n" + node + "\nStatements: " + ((FunctionNode) node).getStatements());
+                if(Shank.DEBUG) System.out.println("Found function: " + node);
                 expectsEndOfLine();
                 node = function();
             }
@@ -189,6 +207,7 @@ public class Parser {
         return left;
     }
 
+    //TODO: Support true, false, StringLiteral, CharLiteral
     /**
      * Factor can be either an IntegerNode/FloatNode/VariableReference or call
      * expression() to build a MathOpNode.
@@ -328,14 +347,31 @@ public class Parser {
 
                                     constantsAndVariables.addAll( processDeclarations(false));
                                 }
+
                                 expectsEndOfLine();
-                                token = peek(0);
                             }
 
-                            matchAndRemove(Token.TokenType.INDENT);
-                            List<StatementNode> statements = statements();
-                            FunctionNode functionNode = new FunctionNode(functionName, parameters, constantsAndVariables, statements);
-                            return functionNode;
+                            token = peek(0);
+
+                            System.out.println("Processing statements for function " + functionName + " debug: " + token);
+
+                            // Expect either INDENT and statements or nothing else.
+                            if(token.getTokenType() == Token.TokenType.INDENT){
+                                // Expect statements...
+                                matchAndRemove(Token.TokenType.INDENT);
+                                List<StatementNode> statements = statements();
+                                // Remove any leftover DEDENT
+                                expectsToken(Token.TokenType.DEDENT);
+
+                                System.out.println("Function(" + functionName + "): " + statements.size() + " statements.");
+
+                                return new FunctionNode(functionName, parameters, constantsAndVariables, statements);
+                            } else {
+                                // No statements for function.
+                                List<StatementNode> statements = new ArrayList<>();
+                                System.out.println("Function(" + functionName + "): no statements.");
+                                return new FunctionNode(functionName, parameters, constantsAndVariables, statements);
+                            }
 
                         }
                     } else {
@@ -458,12 +494,21 @@ public class Parser {
             return null;
         }
         if(token.getTokenType() == Token.TokenType.IDENTIFIER){
-            return assignment();
+            // Check if this is going to be an assignment or function call.
+            String identifierName = token.getValue();
+            if(peek(1).getTokenType() == Token.TokenType.ASSIGNER){
+                return assignment();
+            } else {
+                return parseFunctionCalls();
+            }
+        } else if(token.getTokenType() == Token.TokenType.IF){
+            return parseIf();
         }
 
         throw new SyntaxErrorException("Unexpected token, found: " + token);
     }
 
+    //TODO: Process type limits (i.e variables numberOfCards : integer from 0 to 52)
     /**
      * Processes a list of variable declarations.
      * Expected that function() already deals with VARIABLES token
@@ -719,7 +764,7 @@ public class Parser {
                         case ELSIF -> {
                             matchAndRemove(Token.TokenType.ELSIF);
                             nextIfNode = parseIf();
-                            return new IfNode((BooleanCompareNode) condition, statements, nextIfNode    );
+                            return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
                         }
                         case ELSE -> {
                             matchAndRemove(Token.TokenType.ELSE);
@@ -747,6 +792,89 @@ public class Parser {
         }
     }
 
+
+    /**
+     * Processes a function call with optional amount of parameters.
+     * Example: functionName var parameter1, 1+1
+     * @return returns a FunctionCallNode with the name of the function and optional list of parameters.
+     * @throws SyntaxErrorException if there is an error while processing the function call.
+     */
+    public FunctionCallNode parseFunctionCalls() throws SyntaxErrorException {
+        // FunctionCall expects [] = optional, {} = 0 or more:
+        // IDENTIFIER [PARAMETER] {,PARAMETER}
+        // Parameter is either VAR IDENTIFIER or boolCompare()
+        Token token = peek(0);
+        if(token != null){
+            if(token.getTokenType() == Token.TokenType.IDENTIFIER){
+                String functionName = token.getValue();
+                // Found function call name, process parameters...
+                matchAndRemove(Token.TokenType.IDENTIFIER);
+                token = peek(0);
+                if(token != null){
+                    if(token.getTokenType() == Token.TokenType.VAR){
+                        // Process parameters...
+                        Collection<ParameterNode> parameters = new ArrayList<>();
+                        while(token != null && token.getTokenType() != Token.TokenType.ENDOFLINE){
+                            // Keep processing until we reach ENDOFLINE.
+                            switch (token.getTokenType()){
+                                case VAR ->{
+                                    matchAndRemove(Token.TokenType.VAR);
+                                    token = peek(0);
+                                }
+                                case COMMA -> {
+                                    matchAndRemove(Token.TokenType.COMMA);
+                                    token = peek(0);
+                                }
+                                case IDENTIFIER -> {
+                                    ParameterNode parameter = new ParameterNode(new VariableReferenceNode(token.getValue()));
+                                    parameters.add(parameter);
+                                    matchAndRemove(Token.TokenType.IDENTIFIER);
+                                    token = peek(0);
+                                }
+                                default -> throw new SyntaxErrorException("Unexpected token while processing function call parameters: " + token);
+
+                            }
+
+                        }
+
+                        // We've finished processing any parameters.
+                        return new FunctionCallNode(functionName, parameters);
+
+                    } else if(token.getTokenType() == Token.TokenType.ENDOFLINE){
+                        // No parameters.
+                        return new FunctionCallNode(functionName, null);
+                    } else {
+                        // Process boolCompare() -> expect boolCompare() COMMA boolCompare() COMMA....
+                        //Node parameter = boolCompare();
+                        Collection<ParameterNode> parameters = new ArrayList<>();
+                        // Already processed function name, so now time to process parameters.
+                        parameters.add(new ParameterNode(boolCompare()));
+                        while(token != null){
+                            if(token.getTokenType() != Token.TokenType.ENDOFLINE){
+                                switch (token.getTokenType()){
+                                    case COMMA -> {
+                                        matchAndRemove(Token.TokenType.COMMA);
+                                        parameters.add(new ParameterNode(boolCompare()));
+                                    }
+                                    default -> throw new SyntaxErrorException("Unexpected token while processing function call parameters: " + token);
+                                }
+                            } else {
+                                break;
+                            }
+                        }
+
+                        return new FunctionCallNode(functionName, parameters);
+                    }
+                } else {
+                    // No more tokens and no parameters.
+                    return new FunctionCallNode(functionName, null);
+                }
+            } else {
+                throw new SyntaxErrorException("Expected to find an IDENTIFIER for function call, found: " + token);
+            }
+        }
+        throw new SyntaxErrorException("Expected to find function call, found nothing.");
+    }
 
 
 }

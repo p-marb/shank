@@ -106,6 +106,7 @@ public class Lexer {
         // Indentation/dedentation
         previousIndent = currentIndent;
         currentIndent = getIndentCount(line);
+        System.out.println("Found indent: " + getIndentCount(line));
 
         // If there is more indentation than previous line
         if(currentIndent > previousIndent){
@@ -397,18 +398,18 @@ public class Lexer {
      * @param s the string to analyze.
      * @return the amount of indentation.
      */
-    public int getIndentCount(String s){
+    public int getIndentCount(String str){
         int count = 0;
-        for(int i = 0; i < s.length(); i++){
-            char c = s.charAt(i);
-            if(c == '\t'){
+        int i = 0;
+        while (i < str.length()) {
+            if (str.charAt(i) == '\t') {
                 count++;
-            } else if(c == ' '){
-                if(i+4 < s.length()){
-                    if(s.substring(i, i+4) == "    "){
-                        count++;
-                    }
-                }
+                i++;
+            } else if (i < str.length() - 3 && str.substring(i, i + 4).equals("    ")) {
+                count++;
+                i += 4;
+            } else {
+                i++;
             }
         }
         return count;
