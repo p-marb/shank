@@ -100,7 +100,7 @@ class BooleanCompareNode extends Node {
     }
     @Override
     public String toString(){
-        return "";
+        return "BooleanCompareNode(comparison: " + comparison + ", left: " + left + ", right: " + right + ")";
     }
 }
 
@@ -228,6 +228,19 @@ class StatementNode extends Node {
 
 class IfNode extends StatementNode {
     private BooleanCompareNode condition;
+
+    public void setCondition(BooleanCompareNode condition) {
+        this.condition = condition;
+    }
+
+    public void setStatements(Collection<StatementNode> statements) {
+        this.statements = statements;
+    }
+
+    public void setNextIf(IfNode nextIf) {
+        this.nextIf = nextIf;
+    }
+
     private Collection<StatementNode> statements;
     private IfNode nextIf;
 
@@ -311,6 +324,7 @@ class FunctionCallNode extends StatementNode {
     FunctionCallNode(String name, Collection<ParameterNode> parameters){
         this.name = name;
         this.parameters = parameters;
+        System.out.println(this);
     }
 
     @Override

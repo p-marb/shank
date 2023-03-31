@@ -30,6 +30,14 @@ public class Parser {
     // CORE PARSE METHODS
 
     /**
+     * Returns the current indentation level.
+     * @return integer representation of the indentation level
+     */
+    private int getIndentLevel(){
+        return this.indentLevel;
+    }
+
+    /**
      * Accepts a token type, if the token type matches the next token type
      * token is removed from list and returned. If not a match, returns null.
      * @param tokenType the type of token to check for
@@ -42,7 +50,8 @@ public class Parser {
             if(tok.getTokenType() == Token.TokenType.INDENT) indentLevel++;
             if(tok.getTokenType() == Token.TokenType.DEDENT) indentLevel--;
             // Token is  match, remove and return it.
-            if(Shank.DEBUG) System.out.println("Parser: Removed " + tokenType.name() + "(" + tok.getValue() + ") index " + currentIndex + "/" + tokens.size());
+
+            if(Shank.DEBUG) System.out.println(Thread.currentThread().getStackTrace()[2].getMethodName() + "(): Removed " + tokenType.name() + "(" + tok.getValue() + ") index " + currentIndex + "/" + tokens.size());
             tokens.remove(currentIndex);
             //currentIndex++;
             return tok;
@@ -52,20 +61,27 @@ public class Parser {
 
     private Token expectsToken(Token.TokenType tokenType) throws SyntaxErrorException{
         Token token = peek(0);
+
         if(token != null) {
             if (token.getTokenType() == tokenType) {
                 matchAndRemove(tokenType);
                 token = peek(0);
+                assert  token != null;
 
-                if (token != null && token.getTokenType() == tokenType) {
+                if (token.getTokenType() == tokenType) {
                     expectsToken(tokenType);
+                } else {
+                    return token;
+
                 }
-                return token;
+            } else {
+
+                throw new SyntaxErrorException("Expected " + tokenType.name() + " token, found: " + token);
             }
         } else {
-            return null;
+            throw new SyntaxErrorException("Expected " + tokenType.name() + " token, found nothing. ");
         }
-        throw new SyntaxErrorException("Expected " + tokenType.name() + " token not found. Found: " + token);
+        return null;
     }
 
     /**
@@ -128,7 +144,6 @@ public class Parser {
                     functions.put(((FunctionNode) node).getName(), ((FunctionNode) node));
                 }
                 if(Shank.DEBUG) System.out.println("Found function: " + node);
-                expectsEndOfLine();
                 node = function();
             }
         }
@@ -250,7 +265,10 @@ public class Parser {
             // VariableReference
             case IDENTIFIER -> {
                 String varName;
-                varName = matchAndRemove(Token.TokenType.IDENTIFIER).getValue();
+                token = peek(0);
+                varName = token.getValue();
+                matchAndRemove(Token.TokenType.IDENTIFIER);
+
                 if(varName != null){
                     token = peek(0);
                     if(token.getTokenType() == Token.TokenType.INDEX_L){
@@ -284,6 +302,7 @@ public class Parser {
                 // Expect another expression,
                 matchAndRemove(token.getTokenType());
                 Node right = expression();
+                if(Shank.DEBUG) System.out.println("boolCompare(): Found left " + left + " right " + right + " and comparison " + comparisonType);
                 return new BooleanCompareNode(comparisonType, left, right);
             } else {
                 // No other expression.
@@ -347,21 +366,20 @@ public class Parser {
 
                                     constantsAndVariables.addAll( processDeclarations(false));
                                 }
+                                if(Shank.DEBUG) System.out.println("(" + functionName + "): Finished processing constants and variables");
 
                                 expectsEndOfLine();
+                                break;
                             }
 
                             token = peek(0);
-
                             System.out.println("Processing statements for function " + functionName + " debug: " + token);
 
                             // Expect either INDENT and statements or nothing else.
                             if(token.getTokenType() == Token.TokenType.INDENT){
                                 // Expect statements...
-                                matchAndRemove(Token.TokenType.INDENT);
+                                //matchAndRemove(Token.TokenType.INDENT);
                                 List<StatementNode> statements = statements();
-                                // Remove any leftover DEDENT
-                                expectsToken(Token.TokenType.DEDENT);
 
                                 System.out.println("Function(" + functionName + "): " + statements.size() + " statements.");
 
@@ -469,22 +487,51 @@ public class Parser {
 
     /**
      * Parses a list of statements.
+     * Expects INDENT, then keeps gathering statement() while the
+     * getIndentLevel() > 0. Expects DEDENT after each statement() call.
      * @return the list of statements found
      * @throws SyntaxErrorException if there was an error parsing statements
      */
     public List<StatementNode> statements() throws SyntaxErrorException {
         List<StatementNode> statementNodes = new ArrayList<>();
-        while(peek(0) != null && !peek(0).getTokenType().equals(Token.TokenType.DEDENT)){
+        Token token = peek(0); // Used to track whether the next token is ENDOFLINE or DEDENT.
+
+        expectsToken(Token.TokenType.INDENT);
+        while(getIndentLevel() > 0){
             StatementNode statementNode = statement();
             if(statementNode != null){
                 statementNodes.add(statementNode);
+                if(Shank.DEBUG) System.out.println("statements(): Added statement - " + statementNode);
+            } else {
+                return statementNodes;
+            }
+            token = peek(0);
+            while(token != null){
+                switch (token.getTokenType()){
+                    case DEDENT -> {
+                        expectsToken(Token.TokenType.DEDENT);
+                        token = peek(0);
+                    }
+                    case ENDOFLINE -> {
+                        expectsEndOfLine();
+                        token = peek(0);
+                    }
+                    default -> {
+
+                        if(Shank.DEBUG) System.out.println("statements(): Found " + statementNodes.size() + " statements.");
+                        return statementNodes;
+                    }
+                }
             }
         }
+        if(Shank.DEBUG) System.out.println("statements(): Found " + statementNodes.size() + " statements.");
         return statementNodes;
     }
 
     /**
      * Parses an individual statement.
+     * Expects assignment(), parseFunctionCalls(), parseIf(), parseFor() or parseWhile()
+     * Expects indentation to be dealt with in statements()
      * @return a StatementNode of the node being assigned.
      * @throws SyntaxErrorException if there was an error parsing the statement
      */
@@ -493,19 +540,27 @@ public class Parser {
         if(token == null){
             return null;
         }
-        if(token.getTokenType() == Token.TokenType.IDENTIFIER){
-            // Check if this is going to be an assignment or function call.
-            String identifierName = token.getValue();
-            if(peek(1).getTokenType() == Token.TokenType.ASSIGNER){
-                return assignment();
-            } else {
-                return parseFunctionCalls();
+
+        switch (token.getTokenType()){
+            case IDENTIFIER -> {
+                if(peek(1) != null && peek(1).getTokenType() == Token.TokenType.ASSIGNER){
+                    return assignment();
+                } else {
+                    return parseFunctionCalls();
+                }
             }
-        } else if(token.getTokenType() == Token.TokenType.IF){
-            return parseIf();
+            case IF -> {
+                return parseIf();
+            }
+            case WHILE -> {
+                return parseWhile();
+            }
+            case FOR -> {
+                return parseFor();
+            }
+            default -> throw new SyntaxErrorException("Statement expected assignment, function call, if statement, while loop or for loop.");
         }
 
-        throw new SyntaxErrorException("Unexpected token, found: " + token);
     }
 
     //TODO: Process type limits (i.e variables numberOfCards : integer from 0 to 52)
@@ -743,53 +798,102 @@ public class Parser {
 
     /**
      * Parses an if statement.
+     * Expects IF, boolCompare(), THEN, ENDOFLINE,  statements()
+     * Optionally: ELSIF, ELSE
      *
-     * @return
-     * @throws SyntaxErrorException
+     * @return a linked list chain of IfNode with potential nextIf nodes.
+     * @throws SyntaxErrorException if there was an error processing the IfNode statements.
      */
     public IfNode parseIf() throws SyntaxErrorException {
         Token token = peek(0);
-        if(token.getTokenType() == Token.TokenType.IF) {
-            matchAndRemove(Token.TokenType.IF);
-            // Expect boolCompare(), then token, statements
-            Node condition = boolCompare();
-            // Make sure condition is a BooleanCompareNode.
-            if(condition instanceof BooleanCompareNode) {
-                token = peek(0);
-                if(token.getTokenType() == Token.TokenType.THEN) {
-                    Collection<StatementNode> statements = statements();
-                    IfNode nextIfNode = null;
-                    token = peek(0);
-                    switch(token.getTokenType()) {
-                        case ELSIF -> {
-                            matchAndRemove(Token.TokenType.ELSIF);
-                            nextIfNode = parseIf();
-                            return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
-                        }
-                        case ELSE -> {
-                            matchAndRemove(Token.TokenType.ELSE);
-                            token = peek(0);
-                            if(token.getTokenType() == Token.TokenType.IF){
-                                matchAndRemove(Token.TokenType.IF);
-                                statements = statements();
-                                nextIfNode = parseIf();
-                                return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
-                            }
-                        }
-                    }
-                    nextIfNode = parseIf(); // Recursively parse the next IfNode.
-                    return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
+        IfNode ifNode = new IfNode(null, null, null); //ifNode will be used to build the chain of linked IfNode statements.
+        if(token != null){
+            if(token.getTokenType() == Token.TokenType.IF || token.getTokenType() == Token.TokenType.ELSIF){
+                // Remove IF, ELSIF
+                matchAndRemove(token.getTokenType());
+                // Gather comparison.
+                Node comparison = boolCompare();
+                if(comparison instanceof BooleanCompareNode){
+                    ifNode.setCondition((BooleanCompareNode) comparison);
                 } else {
-                    throw new SyntaxErrorException("Expected then token, found: " + token);
+                    throw new SyntaxErrorException("Expected a boolean comparison for if statement, found " + comparison);
                 }
-            } else {
-                // Condition is null, end of IfNode chain.
-                return null;
+
+                if(Shank.DEBUG) System.out.println("parseIf() Found comparison " + ifNode);
+
+                // Gather statements.
+                expectsToken(Token.TokenType.THEN);
+                expectsEndOfLine();
+                ifNode.setStatements(statements());
+                if(Shank.DEBUG) System.out.println("parseIf(): Found statements " + ifNode);
+
+                token = peek(0);
+                // Check for more IfNodes.
+                if(token != null){
+                    // If there are more ELSIF, recursively set ifNode.nextIf to parseIf()
+                    if(token.getTokenType() == Token.TokenType.ELSIF){
+                        if(Shank.DEBUG) System.out.println("parseIf(): Building ESLIF node -------");
+                        ifNode.setNextIf(parseIf());
+                    } else {
+                        // If no ELSIF, we're done processing the IfNode.
+                        System.out.println("Built ifNode: " + ifNode);
+                        return ifNode;
+                    }
+                }
+
             }
-        } else {
-            // No more if statements, return null.
-            return null;
         }
+
+
+
+
+        return ifNode;
+//        if(token.getTokenType() == Token.TokenType.IF
+//                || token.getTokenType() == Token.TokenType.ELSE
+//                || token.getTokenType() == Token.TokenType.ELSIF) {
+//            matchAndRemove(token.getTokenType());
+//            // Expect boolCompare(), then token, statements
+//            Node condition = boolCompare();
+//            if(Shank.DEBUG) System.out.println("parseIf(): Found condition: " + condition);
+//            // Make sure condition is a BooleanCompareNode.
+//            if(condition instanceof BooleanCompareNode) {
+//                token = peek(0);
+//                if(token.getTokenType() == Token.TokenType.THEN) {
+//                    matchAndRemove(Token.TokenType.THEN);
+//                    expectsEndOfLine();
+//                    Collection<StatementNode> statements = statements();
+//                    IfNode nextIfNode = null;
+//                    token = peek(0);
+//                    switch(token.getTokenType()) {
+//                        case ELSIF -> {
+//                            matchAndRemove(Token.TokenType.ELSIF);
+//                            nextIfNode = parseIf();
+//                            return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
+//                        }
+//                        case ELSE -> {
+//                            matchAndRemove(Token.TokenType.ELSE);
+//                            token = peek(0);
+//                            if(token.getTokenType() == Token.TokenType.IF){
+//                                matchAndRemove(Token.TokenType.IF);
+//                                statements = statements();
+//                                nextIfNode = parseIf();
+//                                return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
+//                            }
+//                        }
+//                    }
+//                    nextIfNode = parseIf(); // Recursively parse the next IfNode.
+//                    return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
+//                } else {
+//                    throw new SyntaxErrorException("Expected then token, found: " + token);
+//                }
+//            } else {
+//                // Condition is null, end of IfNode chain.
+//                return null;
+//            }
+//        } else {
+//            // No more if statements, return null.
+//            return null;
+//        }
     }
 
 
@@ -811,7 +915,7 @@ public class Parser {
                 matchAndRemove(Token.TokenType.IDENTIFIER);
                 token = peek(0);
                 if(token != null){
-                    if(token.getTokenType() == Token.TokenType.VAR){
+                    if(token.getTokenType() == Token.TokenType.VAR || token.getTokenType() == Token.TokenType.IDENTIFIER){
                         // Process parameters...
                         Collection<ParameterNode> parameters = new ArrayList<>();
                         while(token != null && token.getTokenType() != Token.TokenType.ENDOFLINE){
@@ -838,6 +942,7 @@ public class Parser {
                         }
 
                         // We've finished processing any parameters.
+                        expectsEndOfLine();
                         return new FunctionCallNode(functionName, parameters);
 
                     } else if(token.getTokenType() == Token.TokenType.ENDOFLINE){

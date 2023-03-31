@@ -87,6 +87,10 @@ public class Token {
         return this.tokenType;
     }
 
+    public boolean is(TokenType tokenType){
+        return this.tokenType == tokenType;
+    }
+
     /**
      * The value of the token
      * @return value of token
