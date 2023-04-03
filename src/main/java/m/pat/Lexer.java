@@ -52,6 +52,7 @@ public class Lexer {
         knownWords.put(Token.TokenType.NOT, "not");
         knownWords.put(Token.TokenType.VAR, "var");
         knownWords.put(Token.TokenType.INTEGER, "integer");
+        knownWords.put(Token.TokenType.FLOAT, "float");
         knownWords.put(Token.TokenType.CHARACTER, "char");
         knownWords.put(Token.TokenType.STRING, "string");
         knownWords.put(Token.TokenType.BOOLEAN, "bool");

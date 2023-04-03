@@ -51,7 +51,7 @@ public class Parser {
             if(tok.getTokenType() == Token.TokenType.DEDENT) indentLevel--;
             // Token is  match, remove and return it.
 
-            if(Shank.DEBUG) System.out.println(Thread.currentThread().getStackTrace()[2].getMethodName() + "(): Removed " + tokenType.name() + "(" + tok.getValue() + ") index " + currentIndex + "/" + tokens.size());
+            if(Shank.DEBUG) System.out.println("matchAndRemove() | " + Thread.currentThread().getStackTrace()[2].getMethodName() + "(): Removed " + tokenType.name() + "(" + tok.getValue() + ") index " + currentIndex + "/" + tokens.size());
             tokens.remove(currentIndex);
             //currentIndex++;
             return tok;
@@ -151,21 +151,6 @@ public class Parser {
             programNode = new ProgramNode(functions);
             return programNode;
         }
-//        while((node = expression()) != null){
-//
-//            try{
-//                expectsEndOfLine();
-//                if (node instanceof MathOpNode) {
-//                    System.out.println("MathOpNode("
-//                            + ((MathOpNode) node).getOperation() + ", "
-//                            + ((MathOpNode) node).getLeft().toString() + ", " +
-//                            ((MathOpNode) node).getRight().toString() + ")");
-//                }
-//
-//            } catch(SyntaxErrorException e){
-//                e.printStackTrace();
-//            }
-//        }
         throw new SyntaxErrorException("Parsing found non matching token: " + tokens.get(currentIndex));
     }
 
@@ -302,7 +287,7 @@ public class Parser {
                 // Expect another expression,
                 matchAndRemove(token.getTokenType());
                 Node right = expression();
-                if(Shank.DEBUG) System.out.println("boolCompare(): Found left " + left + " right " + right + " and comparison " + comparisonType);
+                if(Shank.DEBUG) System.out.println("boolCompare(): Found left " + left + ", " + comparisonType + ", " + right);
                 return new BooleanCompareNode(comparisonType, left, right);
             } else {
                 // No other expression.
@@ -340,6 +325,7 @@ public class Parser {
                     matchAndRemove(Token.TokenType.PARENTHESIS_L);
                     // Call processDeclarations to collect any function parameters.
                     Collection<VariableNode> parameters = processDeclarations(false);
+                    if(Shank.DEBUG) System.out.println("function (" + functionName + "): Finished processing function parameters (" + parameters.size() + " parameters)");
 
 
                     // variableNodes can be empty, expect PAREN_R
@@ -366,14 +352,13 @@ public class Parser {
 
                                     constantsAndVariables.addAll( processDeclarations(false));
                                 }
-                                if(Shank.DEBUG) System.out.println("(" + functionName + "): Finished processing constants and variables");
+                                if(Shank.DEBUG) System.out.println("function(): (" + functionName + "): Finished processing constants and variables (" + constantsAndVariables.size() + ")");
 
                                 expectsEndOfLine();
                                 break;
                             }
 
                             token = peek(0);
-                            System.out.println("Processing statements for function " + functionName + " debug: " + token);
 
                             // Expect either INDENT and statements or nothing else.
                             if(token.getTokenType() == Token.TokenType.INDENT){
@@ -496,33 +481,39 @@ public class Parser {
         List<StatementNode> statementNodes = new ArrayList<>();
         Token token = peek(0); // Used to track whether the next token is ENDOFLINE or DEDENT.
 
-        expectsToken(Token.TokenType.INDENT);
-        while(getIndentLevel() > 0){
-            StatementNode statementNode = statement();
-            if(statementNode != null){
-                statementNodes.add(statementNode);
-                if(Shank.DEBUG) System.out.println("statements(): Added statement - " + statementNode);
-            } else {
-                return statementNodes;
-            }
-            token = peek(0);
-            while(token != null){
-                switch (token.getTokenType()){
-                    case DEDENT -> {
-                        expectsToken(Token.TokenType.DEDENT);
-                        token = peek(0);
-                    }
-                    case ENDOFLINE -> {
-                        expectsEndOfLine();
-                        token = peek(0);
-                    }
-                    default -> {
 
-                        if(Shank.DEBUG) System.out.println("statements(): Found " + statementNodes.size() + " statements.");
-                        return statementNodes;
+        expectsToken(Token.TokenType.INDENT);
+        StatementNode statementNode;
+        while((statementNode = statement()) != null){
+            if(Shank.DEBUG) System.out.println("statements(): Got statement: " + statementNode);
+            statementNodes.add(statementNode);
+            if(getIndentLevel() != 0){
+                if(Shank.DEBUG && statementNode instanceof IfNode) System.out.println("statements(): ADDED IfNode: " + statementNode);
+                if(Shank.DEBUG && statementNode instanceof WhileNode) System.out.println("statements(): ADDED WhileNode: " + statementNode);
+                if(Shank.DEBUG && statementNode instanceof ForNode) System.out.println("statements(): ADDED ForNode: " + statementNode);
+
+
+                // Remove any DEDENT or ENDOFLINE
+                token = peek(0);
+                if(token == null) return statementNodes;
+                while(token != null && token.getTokenType() == Token.TokenType.DEDENT || token.getTokenType() == Token.TokenType.ENDOFLINE){
+                    switch (token.getTokenType()){
+                        case DEDENT -> {
+                            expectsToken(Token.TokenType.DEDENT);
+                            token = peek(0);
+                        }
+                        case ENDOFLINE -> {
+                            expectsEndOfLine();
+                            token = peek(0);
+                        }
+                        default -> {
+                            statementNode = statement();
+                        }
                     }
                 }
+
             }
+
         }
         if(Shank.DEBUG) System.out.println("statements(): Found " + statementNodes.size() + " statements.");
         return statementNodes;
@@ -550,7 +541,9 @@ public class Parser {
                 }
             }
             case IF -> {
-                return parseIf();
+                IfNode ifNode = parseIf();
+                if(ifNode != null) System.out.println("statement(): RETURNING IFNODE: " + ifNode);
+                return ifNode;
             }
             case WHILE -> {
                 return parseWhile();
@@ -558,7 +551,7 @@ public class Parser {
             case FOR -> {
                 return parseFor();
             }
-            default -> throw new SyntaxErrorException("Statement expected assignment, function call, if statement, while loop or for loop.");
+            default -> { return null; }
         }
 
     }
@@ -566,26 +559,130 @@ public class Parser {
     //TODO: Process type limits (i.e variables numberOfCards : integer from 0 to 52)
     /**
      * Processes a list of variable declarations.
-     * Expected that function() already deals with VARIABLES token
+     * Expected that function() already deals with VARIABLES/CONSTANTS token
      * before using this function to process any declarations.
-     * The format is always the same, "a,b,c : integer"
+     * Expects IDENTIFIER [,IDENTIFIER] COLON  [FROM factor() TO factor()]
      * @param isConstants whether the examined declarations are constant or not
      * @return collection of VariableNodes that were found
      */
     public Collection<VariableNode> processDeclarations(boolean isConstants) throws SyntaxErrorException {
         // format for variable declarations:
         // () = optional, [] = required.
-        // (var) [identifier] (comma identifier...) [colon/equal] [type/value] (semicolon, repeat...)
+        // (var) [identifier] (comma identifier...) [colon/equal] [type/value] (from 0/0.0 to 2/2.0) (semicolon, repeat...)
 
         Collection<VariableNode> declarations = new ArrayList<>();
         Token token;
         token = peek(0);
 
+        // Use variableNode to build a variable node and then add it to declarations.
+        VariableNode variableNode = new VariableNode(null, null, false);
+        // Use preprocessed list of VariableNode to build up multiple variables of the same type (i.e a, b, c : integer)
+        Collection<VariableNode> preDeclarations = new ArrayList<>();
+        while(token != null){
+            switch (token.getTokenType()) {
+
+                // Process (VAR) and [IDENTIFIER] (COMMA IDENTIFIER)'s
+                case VAR -> {
+                    matchAndRemove(Token.TokenType.VAR);
+                    variableNode.setConstant(true);
+                    token = peek(0);
+                }
+                case IDENTIFIER -> {
+                    // Add to preprocessed list.
+                    preDeclarations.add(new VariableNode(null, token.getValue(), false));
+                    matchAndRemove(Token.TokenType.IDENTIFIER);
+                    // Add to list.
+                    token = peek(0);
+                }
+                case COMMA -> {
+                    matchAndRemove(Token.TokenType.COMMA);
+                    token = peek(0);
+                }
+                case COLON -> {
+                    matchAndRemove(Token.TokenType.COLON);
+                    token = peek(0);
+                }
+
+                // Process types.
+                case INTEGER -> {
+                    matchAndRemove(Token.TokenType.INTEGER);
+                    for (VariableNode preDec : preDeclarations) {
+                        // We aren't aware of ranges yet, so just create a regular IntegerNode for now.
+                        preDec.setType(new IntegerNode(0));
+                    }
+                    token = peek(0);
+                }
+
+                case FLOAT -> {
+                    matchAndRemove(Token.TokenType.FLOAT);
+                    for (VariableNode preDec : preDeclarations) {
+                        preDec.setType(new FloatNode(0.0f));
+                    }
+                    token = peek(0);
+                }
+
+                case STRING -> {
+                    matchAndRemove(Token.TokenType.STRING);
+                    for (VariableNode preDec : preDeclarations) {
+                        preDec.setType(new StringNode(""));
+                    }
+                    token = peek(0);
+                }
+
+                // Process ranges.
+
+                case FROM -> {
+                    matchAndRemove(Token.TokenType.FROM);
+                    Token fromRange = matchAndRemove(Token.TokenType.NUMBER);
+                    assert fromRange != null;
+                    matchAndRemove(Token.TokenType.TO);
+                    Token toRange = matchAndRemove(Token.TokenType.NUMBER);
+                    assert toRange != null;
+                    for (VariableNode preDec : preDeclarations) {
+                        // Check if the predeclarations are of the right type (IntegerNode, FloatNode or StringNode)
+                        if (preDec.getType() instanceof IntegerNode) {
+                            preDec.setType(new IntegerNode(0, Integer.parseInt(fromRange.getValue()), Integer.parseInt(toRange.getValue())));
+                        } else if (preDec.getType() instanceof FloatNode) {
+                            preDec.setType(new FloatNode(0.0f, Float.parseFloat(fromRange.getValue()), Float.parseFloat(toRange.getValue())));
+                        } else if (preDec.getType() instanceof StringNode) {
+                            preDec.setType(new StringNode("", Integer.parseInt(fromRange.getValue()), Integer.parseInt(toRange.getValue())));
+                        }
+                        if (Shank.DEBUG) System.out.println("processDeclarations(): processed range " + preDec);
+                    }
+                    token = peek(0);
+                }
+
+                case SEMICOLON -> {
+                    matchAndRemove(Token.TokenType.SEMICOLON);
+                    // When SEMICOLON is reached, add preDeclarations to declarations and clear preDeclarations to
+                    // build any more parameters.
+                    declarations.addAll(preDeclarations);
+                    preDeclarations.clear();
+                    token = peek(0);
+                }
+
+                case PARENTHESIS_R, ENDOFLINE -> {
+                    declarations.addAll(preDeclarations);
+                    if(Shank.DEBUG) System.out.println("processDeclarations(): processed " + declarations.size() + " declarations: " + declarations );
+                    return declarations;
+                }
+
+            }
+        }
+
+
         // To keep track of multiple variable names, whether it is a var and value.
         List<String> variableNames = new ArrayList<>();
         boolean var = false;
         String value;
-
+        // integer, string
+        int fromRange;
+        int toRange;
+        // float/real
+        float realFromRange;
+        float realToRange;
+        Node variableType;
+/**
         // Scan until we reach ENDOFLINE or ).
         while(token.getTokenType() != Token.TokenType.ENDOFLINE && token.getTokenType() != Token.TokenType.PARENTHESIS_R) {
             switch (token.getTokenType()) {
@@ -622,6 +719,13 @@ public class Parser {
                         throw new SyntaxErrorException("EQUALS token expected only in constants declaration.");
                     }
                     break;
+                case FROM:
+                    matchAndRemove(Token.TokenType.FROM);
+                    Node fRange = factor();
+                    matchAndRemove(Token.TokenType.TO);
+                    Node tRange = factor();
+
+
                 case NUMBER:
                     // Expect to have a list or at least one name for constant declaration.
                     if(variableNames.size() > 0){
@@ -680,6 +784,9 @@ public class Parser {
 
                     // TYPES (x : string, y : integer, z : char, etc.)
 
+                case FLOAT:
+
+                    break;
                 case STRING:
                     if(variableNames.size() > 0){
                         for(String varName : variableNames){
@@ -731,12 +838,13 @@ public class Parser {
             }
         }
         // Return can be null if no variables found.
+ **/
         return declarations;
     }
 
     /**
      * Processes a for loop statement.
-     * Expects tokens FOR, IDENTIFIER, FROM, expression(), to, expression()
+     * Expects tokens FOR, IDENTIFIER, FROM, expression(), to, expression(), ENDOFLINE, statements()
      * @return a ForNode with the from and to nodes.
      * @throws SyntaxErrorException if there were any unexpected tokens found or logic.
      */
@@ -756,7 +864,12 @@ public class Parser {
                     if(token.getTokenType() == Token.TokenType.TO){
                         matchAndRemove(Token.TokenType.TO);
                         Node to = expression();
-                        return new ForNode(from, to);
+                        expectsEndOfLine();
+                        Collection<StatementNode> statements = statements();
+                        if(Shank.DEBUG) System.out.println("parseFor(): Collected  " + statements.size() + " statements.");
+                        ForNode forNode = new ForNode(variableReferenceNode, from, to, statements);
+                        if(Shank.DEBUG) System.out.println("parseFor(): Built " + forNode);
+                        return forNode;
                     } else {
                         throw new SyntaxErrorException("Expected to token, found: " + token);
                     }
@@ -773,7 +886,7 @@ public class Parser {
 
     /**
      * Parses a while loop statement.
-     * Expects tokens WHILE, boolCompare(), statements()
+     * Expects tokens WHILE, boolCompare() ENDOFLINE, statements()
      * If there isn't any comparison condition, throws an
      * error.
      * @return WhileNode of statement parsed with the condition and statements.
@@ -785,9 +898,12 @@ public class Parser {
             matchAndRemove(Token.TokenType.WHILE);
             token = peek(0);
             Node condition = boolCompare();
+            expectsEndOfLine();
             if(condition instanceof BooleanCompareNode) {
                 Collection<StatementNode> statements = statements();
-                return new WhileNode((BooleanCompareNode) condition, statements);
+                WhileNode whileNode = new WhileNode((BooleanCompareNode) condition, statements  );
+                if(Shank.DEBUG) System.out.println("parseWhile(): Built " + whileNode);
+                return whileNode;
             } else {
                 throw new SyntaxErrorException("Expected a condition for while loop, found: " + token);
             }
@@ -798,7 +914,7 @@ public class Parser {
 
     /**
      * Parses an if statement.
-     * Expects IF, boolCompare(), THEN, ENDOFLINE,  statements()
+     * Expects IF, boolCompare(), THEN, ENDOFLINE, statements()
      * Optionally: ELSIF, ELSE
      *
      * @return a linked list chain of IfNode with potential nextIf nodes.
@@ -806,7 +922,7 @@ public class Parser {
      */
     public IfNode parseIf() throws SyntaxErrorException {
         Token token = peek(0);
-        IfNode ifNode = new IfNode(null, null, null); //ifNode will be used to build the chain of linked IfNode statements.
+        Node ifNode = new IfNode(null, null, null); //ifNode will be used to build the chain of linked IfNode statements.
         if(token != null){
             if(token.getTokenType() == Token.TokenType.IF || token.getTokenType() == Token.TokenType.ELSIF){
                 // Remove IF, ELSIF
@@ -814,7 +930,7 @@ public class Parser {
                 // Gather comparison.
                 Node comparison = boolCompare();
                 if(comparison instanceof BooleanCompareNode){
-                    ifNode.setCondition((BooleanCompareNode) comparison);
+                     ((IfNode) ifNode).setCondition((BooleanCompareNode) comparison);
                 } else {
                     throw new SyntaxErrorException("Expected a boolean comparison for if statement, found " + comparison);
                 }
@@ -824,7 +940,7 @@ public class Parser {
                 // Gather statements.
                 expectsToken(Token.TokenType.THEN);
                 expectsEndOfLine();
-                ifNode.setStatements(statements());
+                ((IfNode) ifNode).setStatements(statements());
                 if(Shank.DEBUG) System.out.println("parseIf(): Found statements " + ifNode);
 
                 token = peek(0);
@@ -833,11 +949,12 @@ public class Parser {
                     // If there are more ELSIF, recursively set ifNode.nextIf to parseIf()
                     if(token.getTokenType() == Token.TokenType.ELSIF){
                         if(Shank.DEBUG) System.out.println("parseIf(): Building ESLIF node -------");
-                        ifNode.setNextIf(parseIf());
+                        ((IfNode) ifNode).setNextIf(parseIf());
                     } else {
                         // If no ELSIF, we're done processing the IfNode.
-                        System.out.println("Built ifNode: " + ifNode);
-                        return ifNode;
+                        System.out.println(Thread.currentThread().getStackTrace()[2].getMethodName() + "() -> parseIf(): Built ifNode: " + ifNode);
+
+                        return (IfNode) ifNode;
                     }
                 }
 
@@ -847,53 +964,32 @@ public class Parser {
 
 
 
-        return ifNode;
-//        if(token.getTokenType() == Token.TokenType.IF
-//                || token.getTokenType() == Token.TokenType.ELSE
-//                || token.getTokenType() == Token.TokenType.ELSIF) {
-//            matchAndRemove(token.getTokenType());
-//            // Expect boolCompare(), then token, statements
-//            Node condition = boolCompare();
-//            if(Shank.DEBUG) System.out.println("parseIf(): Found condition: " + condition);
-//            // Make sure condition is a BooleanCompareNode.
-//            if(condition instanceof BooleanCompareNode) {
-//                token = peek(0);
-//                if(token.getTokenType() == Token.TokenType.THEN) {
-//                    matchAndRemove(Token.TokenType.THEN);
-//                    expectsEndOfLine();
-//                    Collection<StatementNode> statements = statements();
-//                    IfNode nextIfNode = null;
-//                    token = peek(0);
-//                    switch(token.getTokenType()) {
-//                        case ELSIF -> {
-//                            matchAndRemove(Token.TokenType.ELSIF);
-//                            nextIfNode = parseIf();
-//                            return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
-//                        }
-//                        case ELSE -> {
-//                            matchAndRemove(Token.TokenType.ELSE);
-//                            token = peek(0);
-//                            if(token.getTokenType() == Token.TokenType.IF){
-//                                matchAndRemove(Token.TokenType.IF);
-//                                statements = statements();
-//                                nextIfNode = parseIf();
-//                                return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
-//                            }
-//                        }
-//                    }
-//                    nextIfNode = parseIf(); // Recursively parse the next IfNode.
-//                    return new IfNode((BooleanCompareNode) condition, statements, nextIfNode);
-//                } else {
-//                    throw new SyntaxErrorException("Expected then token, found: " + token);
-//                }
-//            } else {
-//                // Condition is null, end of IfNode chain.
-//                return null;
-//            }
-//        } else {
-//            // No more if statements, return null.
-//            return null;
-//        }
+        return (IfNode) ifNode;
+    }
+
+    /**
+     * Parses a repeat statement.
+     * Expects REPEAT, UNTIL, boolCompare(), ENDOFLINE, statements()
+     * @return
+     * @throws SyntaxErrorException
+     */
+    public RepeatNode parseRepeat() throws SyntaxErrorException {
+        Token token = peek(0);
+        if(token != null){
+            matchAndRemove(Token.TokenType.REPEAT);
+            matchAndRemove(Token.TokenType.UNTIL);
+            Node condition = boolCompare();
+            expectsEndOfLine();
+            List<StatementNode> statements = statements();
+            if(condition instanceof BooleanCompareNode) {
+                return new RepeatNode((BooleanCompareNode) condition, statements);
+            } else {
+                System.err.println("Got non boolean comparison expression: " + condition);
+                return null;
+            }
+        }
+
+        return null;
     }
 
 
@@ -930,12 +1026,11 @@ public class Parser {
                                     token = peek(0);
                                 }
                                 case IDENTIFIER -> {
-                                    ParameterNode parameter = new ParameterNode(new VariableReferenceNode(token.getValue()));
+                                    ParameterNode parameter = new ParameterNode(expression());
                                     parameters.add(parameter);
                                     matchAndRemove(Token.TokenType.IDENTIFIER);
                                     token = peek(0);
                                 }
-                                default -> throw new SyntaxErrorException("Unexpected token while processing function call parameters: " + token);
 
                             }
 
@@ -949,17 +1044,17 @@ public class Parser {
                         // No parameters.
                         return new FunctionCallNode(functionName, null);
                     } else {
-                        // Process boolCompare() -> expect boolCompare() COMMA boolCompare() COMMA....
+                        // Process expression() -> expect expression() COMMA expression() COMMA....
                         //Node parameter = boolCompare();
                         Collection<ParameterNode> parameters = new ArrayList<>();
                         // Already processed function name, so now time to process parameters.
-                        parameters.add(new ParameterNode(boolCompare()));
+                        parameters.add(new ParameterNode(expression()));
                         while(token != null){
                             if(token.getTokenType() != Token.TokenType.ENDOFLINE){
                                 switch (token.getTokenType()){
                                     case COMMA -> {
                                         matchAndRemove(Token.TokenType.COMMA);
-                                        parameters.add(new ParameterNode(boolCompare()));
+                                        parameters.add(new ParameterNode(expression()));
                                     }
                                     default -> throw new SyntaxErrorException("Unexpected token while processing function call parameters: " + token);
                                 }

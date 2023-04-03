@@ -24,7 +24,7 @@ public class Shank {
                 System.err.println("Error: the file (" + file.getAbsolutePath() + ") does not exist.");
             } else {
                 System.out.println("File found. Attempting to lex...");
-                long startTime = System.currentTimeMillis();
+                long lexStartTime = System.currentTimeMillis();
                 try {
                     // Lex each line in the file.
                     List<String> fileLines = Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
@@ -40,9 +40,10 @@ public class Shank {
                         }
                     }
                     List<Token> tokenList = new ArrayList<>(lexer.getTokens());
-                    long endTime = System.currentTimeMillis();
-                    System.out.println("Finished lexical analysis (" + (endTime - startTime) + " milliseconds)");
+                    long lexEndTime = System.currentTimeMillis();
+                    System.out.println("Finished lexical analysis (" + (lexEndTime - lexStartTime) + " milliseconds)");
                     System.out.println("Total tokens - " + tokenList.size() + " - Total errors - " + errorCount);
+                    long parseStartTime = System.currentTimeMillis();
                     if(errorCount == 0){
                         // Only move on if there are no errors in the lexical analysis.
                         Parser parser = new Parser(tokenList);
@@ -50,7 +51,9 @@ public class Shank {
                         try{
                             programNode = (ProgramNode) parser.parse();
                             if(programNode != null){
-                                System.out.println("Got functions: " + programNode);
+                                long parseEndTime = System.currentTimeMillis();
+                                System.out.println("Finished parsing (" + (parseEndTime - parseStartTime) + " milliseconds)");
+                                System.out.println("ProgramNode: " + programNode);
                             }
                         } catch(SyntaxErrorException e){
                             e.printStackTrace();

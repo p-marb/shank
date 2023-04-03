@@ -11,35 +11,79 @@ abstract class Node {
 
 class IntegerNode extends Node {
     private int value;
+    private int fromRange;
+    private int toRange;
 
     IntegerNode(int value){
         this.value = value;
     }
 
-    private int getValue(){
-        return this.value;
+    IntegerNode(int value, int fromRange, int toRange){
+        this.value = value;
+        this.fromRange = fromRange;
+        this.toRange = toRange;
     }
 
     @Override
     public String toString() {
-        return Integer.toString(value);
+        if(fromRange == 0 && toRange == 0){
+            return "IntegerNode(value: " + value + ")";
+        }
+        return "IntegerNode(value: " + value + ", from: " + fromRange + ", to: " + toRange + ")";
+    }
+
+    public void setValue(int value){
+        this.value = value;
+    }
+
+    public int getValue(){
+        return this.value;
+    }
+
+    public int getFromRange() {
+        return fromRange;
+    }
+
+    public int getToRange() {
+        return toRange;
     }
 }
 
 class FloatNode extends Node {
     private float value;
+    private float fromRange;
+    private float toRange;
 
     FloatNode(float value){
         this.value = value;
     }
 
-    private float getValue(){
-        return this.value;
+    FloatNode(float value, float fromRange, float toRange){
+        this.value = value;
+        this.fromRange = fromRange;
+        this.toRange = toRange;
     }
-
     @Override
     public String toString(){
-        return Float.toString(value);
+        if(fromRange == 0.0 && toRange == 0.0){
+            return "FloatNode(value: " + value + ")";
+        }
+        return "FloatNode(value: " + value + ", from: " + fromRange + ", to: " + toRange + ")";
+    }
+
+    public void setValue(float newValue){
+        this.value = newValue;
+    }
+
+    public float getValue(){
+        return this.value;
+    }
+    public float getFromRange() {
+        return fromRange;
+    }
+
+    public float getToRange() {
+        return toRange;
     }
 }
 
@@ -75,6 +119,7 @@ class MathOpNode extends Node {
     }
 }
 
+// LOGIC
 enum BooleanComparison {
     GREATER_THAN, LESS_THAN, GREATER_OR_EQUAL, LESS_OR_EQUAL, EQUALS, NOT_EQUALS
 }
@@ -113,12 +158,16 @@ class BooleanNode extends Node {
      * Constructs a BooleanNode.
      * @param value the value of the boolean
      */
-    BooleanNode(boolean value) { this.value = value; }
+    BooleanNode(boolean value) {
+        this.value = value;
+    }
 
     private boolean getValue() { return this.value; }
 
     @Override
-    public String toString() { return Boolean.toString(value); }
+    public String toString() {
+        return "BooleanNode(value: " + value + ")";
+    }
 }
 
 class CharacterNode extends Node {
@@ -134,24 +183,48 @@ class CharacterNode extends Node {
     private char getValue() { return this.value; }
 
     @Override
-    public String toString(){ return Character.toString(value); }
+    public String toString(){
+        return "CharacterNode(value: " + value + ")";
+    }
 }
 
 class StringNode extends Node {
 
     private String value;
+    private int fromRange;
+    private int toRange;
 
     /**
      * Constructs a StringNode.
      * @param value the value of the string
      */
     StringNode(String value) { this.value = value; }
-
-    private String getValue() { return this.value; }
+    StringNode(String value, int fromRange, int toRange){
+        this.value = value;
+        this.fromRange = fromRange;
+        this.toRange = toRange;
+    }
 
     @Override
     public String toString(){
-        return value;
+        if(fromRange == 0 && toRange == 0) {
+            return "StringNode(value: " + value + ")";
+        }
+        return "StringNode(value: " + value + ", from: " + fromRange + ", to: " + toRange + ")";
+    }
+
+    public void setValue(String newValue){
+        this.value = newValue;
+    }
+
+    public String getValue() { return this.value; }
+
+    public int getFromRange() {
+        return fromRange;
+    }
+
+    public int getToRange() {
+        return toRange;
     }
 }
 
@@ -173,9 +246,31 @@ class VariableNode extends Node {
         this.isConstant = isConstant;
     }
 
+    public boolean isConstant(){
+        return this.isConstant;
+    }
+
+    public Node getType(){
+        return this.type;
+    }
+
+    public String getName() { return this.name; }
+
+    public void setType(Node type){
+        this.type = type;
+    }
+
+    public void setName(String name){
+        this.name = name;
+    }
+
+    public void setConstant(boolean isConstant){
+        this.isConstant = isConstant;
+    }
+
     @Override
     public String toString(){
-        return "(" + name + ":" + type.toString() + ", const:" + isConstant + ")";
+        return "(name: " + name + ", type: " + type.toString() + ", const:" + isConstant + ")";
     }
 }
 
@@ -285,33 +380,68 @@ class WhileNode extends StatementNode {
     public Collection<StatementNode> getStatements(){
         return this.statements;
     }
+
+    @Override
+    public String toString(){
+        return "WhileNode(condition: " + condition + ", statements: " + statements + ")";
+    }
 }
 
 class RepeatNode extends StatementNode {
-    private BooleanComparison condition;
+    private BooleanCompareNode condition;
     private Collection<StatementNode> statements;
 
-    RepeatNode(BooleanComparison condition, Collection<StatementNode> statements){
+    RepeatNode(BooleanCompareNode condition, Collection<StatementNode> statements){
         this.condition = condition;
         this.statements = statements;
     }
 
-    public BooleanComparison getCondition(){
+    public BooleanCompareNode getCondition(){
         return this.condition;
     }
 
     public Collection<StatementNode> getStatements(){
         return this.statements;
     }
+
+    @Override
+    public String toString(){
+        return "RepeatNode(condition: " + condition + ", statements: " + statements + ")";
+    }
 }
 
 class ForNode extends StatementNode {
     private Node from;
     private Node to;
+    private VariableReferenceNode varReference;
+    private Collection<StatementNode> statements;
 
-    ForNode(Node from, Node to){
+    ForNode(Node from, Node to, Collection<StatementNode> statements){
         this.from = from;
         this.to = to;
+        this.statements = statements;
+    }
+
+    ForNode(VariableReferenceNode varReference, Node from, Node to, Collection<StatementNode> statements){
+        this.varReference = varReference;
+        this.from = from;
+        this.to = to;
+        this.statements = statements;
+    }
+
+    public Node getFrom(){
+        return this.from;
+    }
+
+    public Node getTo(){
+        return this.to;
+    }
+
+    public String toString(){
+        if(this.varReference != null)
+            return "ForNode(varReference: " + varReference + ", from: " + from + ", to: " + to + ", statements: " + statements + ")";
+        else
+            return "ForNode(from: " + from + ", to: " + from + ", statements: " + statements + ")";
     }
 
 
@@ -324,7 +454,7 @@ class FunctionCallNode extends StatementNode {
     FunctionCallNode(String name, Collection<ParameterNode> parameters){
         this.name = name;
         this.parameters = parameters;
-        System.out.println(this);
+        if(Shank.DEBUG) System.out.println("Built FunctionCallNode: " + this);
     }
 
     @Override
@@ -338,6 +468,16 @@ class FunctionCallNode extends StatementNode {
 
     public String getName() {
         return name;
+    }
+
+    // To check if the function name is language-specific function.
+    public boolean isVariadic(){
+        switch (getName()){
+            case "write", "read" -> { // Write/Read can take at least 1 and potentially any number of variables.
+                return true;
+            }
+        }
+        return false;
     }
 }
 
@@ -439,10 +579,12 @@ class ProgramNode extends Node {
 
     @Override
     public String toString(){
-        String programNode = "(" + functions.size() + ")\n";
-        for(String functionNames : functions.keySet()){
-            programNode += "FUNCTION(" + functionNames + "): " + functions.get(functionNames) + "\n";
+        String programNodeString = "ProgramNode(" + functions.size() + ")\n";
+        int functionCount = 0;
+        for(FunctionNode functionNode : functions.values()){
+            functionCount++;
+            programNodeString += "[" + functionCount + "] " + functionNode + "\n";
         }
-        return programNode;
+        return programNodeString;
     }
 }

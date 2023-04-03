@@ -58,6 +58,7 @@ public class Token {
         SEMICOLON,
         VAR,
         INTEGER,
+        FLOAT,
         CHARACTER,
         STRING,
         BOOLEAN,
@@ -121,6 +122,18 @@ public class Token {
             default:
                 return null;
         }
+    }
+
+    public boolean isType(){
+        switch (tokenType){
+            case INTEGER:
+            case FLOAT:
+            case STRING:
+            case BOOLEAN:
+            case CHARACTER:
+                return true;
+        }
+        return false;
     }
 
     public String toString(){
