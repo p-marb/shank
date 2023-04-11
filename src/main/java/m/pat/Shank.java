@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class Shank {
 
@@ -54,6 +55,16 @@ public class Shank {
                                 long parseEndTime = System.currentTimeMillis();
                                 System.out.println("Finished parsing (" + (parseEndTime - parseStartTime) + " milliseconds)");
                                 System.out.println("ProgramNode: " + programNode);
+
+                                // Begin interpreting ProgramNode...
+                                System.out.println("----- BEGINNING INTERPRETATION -----");
+                                try{
+                                    TimeUnit.SECONDS.sleep(2);
+                                    System.out.print("\033[H\033[2J");
+                                    System.out.flush();
+                                } catch (InterruptedException e){
+                                    e.printStackTrace();
+                                }
                             }
                         } catch(SyntaxErrorException e){
                             e.printStackTrace();

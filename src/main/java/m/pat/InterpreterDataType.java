@@ -11,6 +11,10 @@ class IntegerDataType extends InterpreterDataType {
 
     private int integer;
 
+    IntegerDataType(){
+
+    }
+
     IntegerDataType(int integer){
         this.integer = integer;
     }
@@ -34,6 +38,8 @@ class RealDataType extends InterpreterDataType {
 
     private float real;
 
+    RealDataType(){}
+
     RealDataType(float real){
         this.real = real;
     }
@@ -52,15 +58,15 @@ class RealDataType extends InterpreterDataType {
 
     }
 }
-class ArrayDataType extends InterpreterDataType {
+class ArrayDataType<T extends InterpreterDataType> extends InterpreterDataType {
 
-    private ArrayList<InterpreterDataType> dataTypeList = new ArrayList<>();
+    private ArrayList<T> dataTypeList = new ArrayList<>();
 
-    ArrayDataType(InterpreterDataType dataType){
+    ArrayDataType(T dataType){
         this.dataTypeList.add(dataType);
     }
 
-    ArrayDataType(ArrayList<InterpreterDataType> dataTypes){
+    ArrayDataType(ArrayList<T> dataTypes){
         this.dataTypeList = dataTypes;
     }
 
@@ -102,6 +108,8 @@ class CharacterDataType extends InterpreterDataType {
 
     private char character;
 
+    CharacterDataType(){}
+
     CharacterDataType(char character){
         this.character = character;
     }
@@ -133,4 +141,3 @@ class BooleanDataType extends InterpreterDataType {
 
     }
 }
-

@@ -49,6 +49,8 @@ public class Token {
         NOT,
         THEN,
         UNTIL,
+        TRUE,
+        FALSE,
 
         STRINGLITERAL,
         CHARACTERLITERAL,

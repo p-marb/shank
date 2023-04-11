@@ -131,8 +131,10 @@ public class Parser {
         ProgramNode programNode;
         HashMap<String, FunctionNode> functions = new HashMap<>();
 
-//        // Clear up any ENDOFLINE's that are present before code tokens.
-//        expectsEndOfLine();
+        // Clear up any ENDOFLINE's that are present before code tokens.
+        Token token = peek(0);
+        if(token != null && token.getTokenType() == Token.TokenType.ENDOFLINE) expectsEndOfLine();
+        // Begin parsing for functions.
         Node node = function();
         while(node != null){
             if(node instanceof FunctionNode){
@@ -207,10 +209,10 @@ public class Parser {
         return left;
     }
 
-    //TODO: Support true, false, StringLiteral, CharLiteral
     /**
-     * Factor can be either an IntegerNode/FloatNode/VariableReference or call
-     * expression() to build a MathOpNode.
+     * Factor attempts to build a MathOpNode, IntegerNode/FloatNode,
+     * VariableReference, StringNode/CharacterNode(MathOpNode if there is concatenation)
+     * and finally a BooleanNode.
      * @return IntegerNode/FloatNode or MathOpNode
      * @throws SyntaxErrorException if VariableReference name is not found
      */
@@ -268,6 +270,58 @@ public class Parser {
                     System.err.println("factor(): variable reference found null name, wrong token?");
                 }
             }
+            // Strings & Chars
+            case STRINGLITERAL -> {
+                token = peek(0);
+                if(token != null){
+                    if(token.getTokenType() == Token.TokenType.STRINGLITERAL){
+                        String stringLiteral = token.getValue();
+                        matchAndRemove(Token.TokenType.STRINGLITERAL);
+                        // Check for concatenation of StringLiteral.
+                        token = peek(0);
+                        if(token.getTokenType() == Token.TokenType.PLUS){
+                            // A bit weird, but build a MathOpNode to represent the string concat.
+                            matchAndRemove(Token.TokenType.PLUS);
+                            Node right = expression();
+                            return new MathOpNode(MathOp.PLUS, new StringNode(stringLiteral), right);
+                        } else {
+                            // No concatenation.
+                            return new StringNode(stringLiteral);
+                        }
+                    }
+                }
+            }
+
+            case CHARACTERLITERAL -> {
+                token = peek(0);
+                if(token != null){
+                    if(token.getTokenType() == Token.TokenType.CHARACTERLITERAL){
+                        char charLiteral = token.getValue().charAt(0);
+                        matchAndRemove(Token.TokenType.CHARACTERLITERAL);
+                        // Check for concat of CharacterLiteral
+                        token = peek(0);
+                        if(token.getTokenType() == Token.TokenType.PLUS){
+                            matchAndRemove(Token.TokenType.PLUS);
+                            Node right = expression();
+                            return new MathOpNode(MathOp.PLUS, new CharacterNode(charLiteral), right);
+                        } else {
+                            // No concatenation.
+                            return new CharacterNode(charLiteral);
+                        }
+                    }
+                }
+            }
+            // True & False
+            case TRUE -> {
+                matchAndRemove(Token.TokenType.TRUE);
+                return new BooleanNode(true);
+            }
+
+            case FALSE -> {
+                matchAndRemove(Token.TokenType.FALSE);
+                return new BooleanNode(false);
+            }
+
         }
         return null;
     }
@@ -481,7 +535,6 @@ public class Parser {
         List<StatementNode> statementNodes = new ArrayList<>();
         Token token = peek(0); // Used to track whether the next token is ENDOFLINE or DEDENT.
 
-
         expectsToken(Token.TokenType.INDENT);
         StatementNode statementNode;
         while((statementNode = statement()) != null){
@@ -492,11 +545,12 @@ public class Parser {
                 if(Shank.DEBUG && statementNode instanceof WhileNode) System.out.println("statements(): ADDED WhileNode: " + statementNode);
                 if(Shank.DEBUG && statementNode instanceof ForNode) System.out.println("statements(): ADDED ForNode: " + statementNode);
 
-
-                // Remove any DEDENT or ENDOFLINE
+                // Check if we're at the end of the program.
                 token = peek(0);
                 if(token == null) return statementNodes;
-                while(token != null && token.getTokenType() == Token.TokenType.DEDENT || token.getTokenType() == Token.TokenType.ENDOFLINE){
+
+                // Remove any DEDENT or ENDOFLINE
+                while(token != null && (token.getTokenType() == Token.TokenType.DEDENT || token.getTokenType() == Token.TokenType.ENDOFLINE)){
                     switch (token.getTokenType()){
                         case DEDENT -> {
                             expectsToken(Token.TokenType.DEDENT);
@@ -506,13 +560,12 @@ public class Parser {
                             expectsEndOfLine();
                             token = peek(0);
                         }
-                        default -> {
-                            statementNode = statement();
-                        }
                     }
                 }
 
             }
+
+            if(Shank.DEBUG) System.out.println("statements(): Finished loop, I: " + getIndentLevel());
 
         }
         if(Shank.DEBUG) System.out.println("statements(): Found " + statementNodes.size() + " statements.");
@@ -542,21 +595,24 @@ public class Parser {
             }
             case IF -> {
                 IfNode ifNode = parseIf();
-                if(ifNode != null) System.out.println("statement(): RETURNING IFNODE: " + ifNode);
+                if(ifNode != null) System.out.println("statement(): Returning IfNode: " + ifNode);
                 return ifNode;
             }
             case WHILE -> {
-                return parseWhile();
+                WhileNode whileNode = parseWhile();
+                if(whileNode != null && (Shank.DEBUG)) System.out.println("statement(): Returning WhileNode: " + whileNode);
+                return whileNode;
             }
             case FOR -> {
-                return parseFor();
+                ForNode forNode = parseFor();
+                if(forNode != null && (Shank.DEBUG)) System.out.println("statement(): Returning ForNode: " + forNode);
+                return forNode;
             }
             default -> { return null; }
         }
 
     }
 
-    //TODO: Process type limits (i.e variables numberOfCards : integer from 0 to 52)
     /**
      * Processes a list of variable declarations.
      * Expected that function() already deals with VARIABLES/CONSTANTS token
@@ -629,6 +685,22 @@ public class Parser {
                     token = peek(0);
                 }
 
+                case CHARACTER -> {
+                    matchAndRemove(Token.TokenType.CHARACTER);
+                    for(VariableNode preDec : preDeclarations){
+                        preDec.setType(new CharacterNode('\0'));
+                    }
+                    token = peek(0);
+                }
+
+                case BOOLEAN -> {
+                    matchAndRemove(Token.TokenType.BOOLEAN);
+                    for(VariableNode preDec : preDeclarations){
+                        preDec.setType(new BooleanNode(false));
+                    }
+                    token = peek(0);
+                }
+
                 // Process ranges.
 
                 case FROM -> {
@@ -669,176 +741,6 @@ public class Parser {
 
             }
         }
-
-
-        // To keep track of multiple variable names, whether it is a var and value.
-        List<String> variableNames = new ArrayList<>();
-        boolean var = false;
-        String value;
-        // integer, string
-        int fromRange;
-        int toRange;
-        // float/real
-        float realFromRange;
-        float realToRange;
-        Node variableType;
-/**
-        // Scan until we reach ENDOFLINE or ).
-        while(token.getTokenType() != Token.TokenType.ENDOFLINE && token.getTokenType() != Token.TokenType.PARENTHESIS_R) {
-            switch (token.getTokenType()) {
-                case VAR:
-                    var = true;
-                    matchAndRemove(Token.TokenType.VAR);
-                    token = peek(0);
-                    break;
-                case IDENTIFIER:
-                    // Identifier can either have a comma or colon after it.
-                    variableNames.add(token.getValue());
-                    matchAndRemove(Token.TokenType.IDENTIFIER);
-                    token = peek(0);
-                    break;
-                case COMMA:
-                    matchAndRemove(Token.TokenType.COMMA);
-                    token = peek(0);
-                    break;
-                case COLON:
-                    matchAndRemove(Token.TokenType.COLON);
-                    token = peek(0);
-                    break;
-                case SEMICOLON:
-                    matchAndRemove(Token.TokenType.SEMICOLON);
-                    variableNames.clear();
-                    var = false;
-                    token = peek(0);
-                    break;
-                case EQUALS:
-                    if(isConstants){
-                        matchAndRemove(Token.TokenType.EQUALS);
-                        token = peek(0);
-                    } else {
-                        throw new SyntaxErrorException("EQUALS token expected only in constants declaration.");
-                    }
-                    break;
-                case FROM:
-                    matchAndRemove(Token.TokenType.FROM);
-                    Node fRange = factor();
-                    matchAndRemove(Token.TokenType.TO);
-                    Node tRange = factor();
-
-
-                case NUMBER:
-                    // Expect to have a list or at least one name for constant declaration.
-                    if(variableNames.size() > 0){
-                        if(isConstants){
-                            if(token.getValue().contains(".")){
-                                for(String varName: variableNames){
-                                    declarations.add(new VariableNode(new FloatNode(Float.parseFloat(token.getValue())), varName, true ));
-                                }
-                            } else {
-                                for(String varName: variableNames){
-                                    declarations.add(new VariableNode(new IntegerNode(Integer.parseInt(token.getValue())), varName, true ));
-                                }
-                            }
-                            matchAndRemove(Token.TokenType.NUMBER);
-                            token = peek(0);
-                        } else {
-                            throw new SyntaxErrorException("Expected numbers to be constants. Found: " + token);
-                        }
-                    } else {
-                        throw new SyntaxErrorException("Expected list of 1 or more constant variables, found 0.");
-                    }
-                    break;
-
-                case STRINGLITERAL:
-                    if(variableNames.size() > 0){
-                        if(isConstants){
-                            for(String varName: variableNames){
-                                declarations.add(new VariableNode(new StringNode(token.getValue()), varName, true));
-                            }
-                            matchAndRemove(Token.TokenType.STRINGLITERAL);
-                            token = peek(0);
-                        } else {
-                            throw new SyntaxErrorException("Expected string literal to be constant. Found: " + token);
-                        }
-                    } else {
-                        throw new SyntaxErrorException("Expected list of 1 or more constant variables, found 0.");
-                    }
-                    break;
-                case CHARACTERLITERAL:
-                    if(variableNames.size() > 0){
-                        if(isConstants){
-                            for(String varName: variableNames){
-                                declarations.add(new VariableNode(new CharacterNode(token.getValue().charAt(0)), varName, true));
-                            }
-                            matchAndRemove(Token.TokenType.STRINGLITERAL);
-                            token = peek(0);
-                        } else {
-                            throw new SyntaxErrorException("Expected character literal to be constant. Found: " + token);
-                        }
-                    } else {
-                        throw new SyntaxErrorException("Expected list of 1 or more constant variables, found 0.");
-                    }
-                    break;
-
-
-
-                    // TYPES (x : string, y : integer, z : char, etc.)
-
-                case FLOAT:
-
-                    break;
-                case STRING:
-                    if(variableNames.size() > 0){
-                        for(String varName : variableNames){
-                            declarations.add(new VariableNode(new StringNode(""), varName, var));
-                        }
-                        matchAndRemove(Token.TokenType.STRING);
-                        token = peek(0);
-                    } else {
-                        throw new SyntaxErrorException("No variable names were found for type STRING.");
-                    }
-                    break;
-
-                case CHARACTER:
-                    if(variableNames.size() > 0){
-                        for(String varName : variableNames){
-                            declarations.add(new VariableNode(new CharacterNode('\0'), varName, var));
-                        }
-                        matchAndRemove(Token.TokenType.CHARACTER);
-                        token = peek(0);
-                    } else {
-                        throw new SyntaxErrorException("No variable names were found for type CHAR.");
-                    }
-                    break;
-                case BOOLEAN:
-                    if(variableNames.size() > 0){
-                        for(String varName : variableNames){
-                            declarations.add(new VariableNode(new BooleanNode(false), varName, var));
-                        }
-                        matchAndRemove(Token.TokenType.BOOLEAN);
-                        token = peek(0);
-                    } else {
-                        throw new SyntaxErrorException("No variable names were found for type BOOLEAN.");
-                    }
-                    break;
-                case INTEGER:
-                    // Expect to have a list of names built up.
-                    if(variableNames.size() > 0){
-                        for(String varName : variableNames){
-                            declarations.add(new VariableNode(new IntegerNode(0), varName, var));
-                        }
-                        matchAndRemove(Token.TokenType.INTEGER);
-                        token = peek(0);
-                    } else {
-                        throw new SyntaxErrorException("No variable names were found for type INTEGER.");
-                    }
-                    break;
-
-
-            }
-        }
-        // Return can be null if no variables found.
- **/
         return declarations;
     }
 
@@ -924,31 +826,38 @@ public class Parser {
         Token token = peek(0);
         Node ifNode = new IfNode(null, null, null); //ifNode will be used to build the chain of linked IfNode statements.
         if(token != null){
-            if(token.getTokenType() == Token.TokenType.IF || token.getTokenType() == Token.TokenType.ELSIF){
-                // Remove IF, ELSIF
+            if(token.getTokenType() == Token.TokenType.IF || token.getTokenType() == Token.TokenType.ELSIF
+                        || token.getTokenType() == Token.TokenType.ELSE){
+                // Remove IF, ELSIF, ELSE
                 matchAndRemove(token.getTokenType());
-                // Gather comparison.
-                Node comparison = boolCompare();
-                if(comparison instanceof BooleanCompareNode){
-                     ((IfNode) ifNode).setCondition((BooleanCompareNode) comparison);
-                } else {
-                    throw new SyntaxErrorException("Expected a boolean comparison for if statement, found " + comparison);
+                // Only gather comparison if token is IF or ELSIF
+                if(token.getTokenType() != Token.TokenType.ELSE){
+                    // Gather comparison.
+                    Node comparison = boolCompare();
+                    if(comparison instanceof BooleanCompareNode){
+                        ((IfNode) ifNode).setCondition((BooleanCompareNode) comparison);
+                    } else {
+                        throw new SyntaxErrorException("Expected a boolean comparison for if statement, found " + comparison);
+                    }
+
+                    if(Shank.DEBUG) System.out.println("parseIf() Found comparison " + ((IfNode) ifNode).getCondition());
+
+                    // Gather statements.
+                    expectsToken(Token.TokenType.THEN);
                 }
-
-                if(Shank.DEBUG) System.out.println("parseIf() Found comparison " + ifNode);
-
-                // Gather statements.
-                expectsToken(Token.TokenType.THEN);
                 expectsEndOfLine();
                 ((IfNode) ifNode).setStatements(statements());
-                if(Shank.DEBUG) System.out.println("parseIf(): Found statements " + ifNode);
+                if(Shank.DEBUG) System.out.println("parseIf(): Found statements " + ((IfNode) ifNode).getStatements());
 
                 token = peek(0);
                 // Check for more IfNodes.
                 if(token != null){
                     // If there are more ELSIF, recursively set ifNode.nextIf to parseIf()
-                    if(token.getTokenType() == Token.TokenType.ELSIF){
-                        if(Shank.DEBUG) System.out.println("parseIf(): Building ESLIF node -------");
+                    if(token.getTokenType() == Token.TokenType.ELSIF) {
+                        if (Shank.DEBUG) System.out.println("parseIf(): Building ESLIF node -------");
+                        ((IfNode) ifNode).setNextIf(parseIf());
+                    } else if(token.getTokenType() == Token.TokenType.ELSE){
+                        if (Shank.DEBUG) System.out.println("parseIf(): Building ELSE node -------");
                         ((IfNode) ifNode).setNextIf(parseIf());
                     } else {
                         // If no ELSIF, we're done processing the IfNode.
@@ -1049,12 +958,15 @@ public class Parser {
                         Collection<ParameterNode> parameters = new ArrayList<>();
                         // Already processed function name, so now time to process parameters.
                         parameters.add(new ParameterNode(expression()));
+                        if(Shank.DEBUG) System.out.println("Added parameter: " + parameters);
+                        token = peek(0);
                         while(token != null){
                             if(token.getTokenType() != Token.TokenType.ENDOFLINE){
                                 switch (token.getTokenType()){
                                     case COMMA -> {
                                         matchAndRemove(Token.TokenType.COMMA);
                                         parameters.add(new ParameterNode(expression()));
+                                        token = peek(0);
                                     }
                                     default -> throw new SyntaxErrorException("Unexpected token while processing function call parameters: " + token);
                                 }

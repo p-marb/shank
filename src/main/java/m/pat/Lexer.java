@@ -56,8 +56,10 @@ public class Lexer {
         knownWords.put(Token.TokenType.CHARACTER, "char");
         knownWords.put(Token.TokenType.STRING, "string");
         knownWords.put(Token.TokenType.BOOLEAN, "bool");
+        knownWords.put(Token.TokenType.TRUE, "true");
+        knownWords.put(Token.TokenType.FALSE, "false");
 
-        knownWords.put(Token.TokenType.WRITE, "write");
+        //knownWords.put(Token.TokenType.WRITE, "write");
 
         knownWords.put(Token.TokenType.STRINGLITERAL, "\"");
         knownWords.put(Token.TokenType.CHARACTERLITERAL, "\'");
@@ -396,7 +398,7 @@ public class Lexer {
     /**
      * Returns the level of indentation. 4 spaces OR 1 tab is equal to 1 indent count.
      * 8 spaces OR 2 tabs are equal to 2, etc.
-     * @param s the string to analyze.
+     * @param str the string to analyze.
      * @return the amount of indentation.
      */
     public int getIndentCount(String str){

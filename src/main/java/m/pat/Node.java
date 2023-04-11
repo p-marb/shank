@@ -268,6 +268,26 @@ class VariableNode extends Node {
         this.isConstant = isConstant;
     }
 
+    /**
+     * Helper function to create IDT out of VariableNode.
+     * @return corresponding IDT from VariableNode, or null.
+     */
+    public InterpreterDataType getDataType() {
+        if (this.type instanceof BooleanNode) {
+            return new BooleanDataType();
+        } else if (this.type instanceof IntegerNode) {
+            return new IntegerDataType();
+        } else if (this.type instanceof StringNode) {
+            return new StringDataType("");
+        } else if(this.type instanceof FloatNode) {
+            return new RealDataType();
+        } else if(this.type instanceof CharacterNode){
+            return new CharacterDataType();
+        }
+        return null;
+    }
+
+
     @Override
     public String toString(){
         return "(name: " + name + ", type: " + type.toString() + ", const:" + isConstant + ")";
@@ -298,6 +318,10 @@ class VariableReferenceNode extends Node {
 
     public void setIndex(Node node){
         this.index = node;
+    }
+
+    public String getName(){
+        return this.name;
     }
 
     @Override
@@ -356,6 +380,14 @@ class IfNode extends StatementNode {
 
     public Collection<StatementNode> getStatements(){
         return this.statements;
+    }
+
+    public boolean hasNext(){
+        return this.nextIf != null;
+    }
+
+    public IfNode next(){
+        return this.nextIf;
     }
 
     @Override
@@ -435,6 +467,10 @@ class ForNode extends StatementNode {
 
     public Node getTo(){
         return this.to;
+    }
+
+    public Collection<StatementNode> getStatements(){
+        return this.statements;
     }
 
     public String toString(){
@@ -524,6 +560,22 @@ class AssignmentNode extends StatementNode {
     AssignmentNode(VariableReferenceNode target, Node value){
         this.target = target;
         this.value = value;
+    }
+
+    /**
+     * Target defines what is actually going to be changed.
+     * @return
+     */
+    public VariableReferenceNode getTarget(){
+        return this.target;
+    }
+
+    /**
+     * Value is what the target will be assigned to.
+     * @return
+     */
+    public Node getValue(){
+        return this.value;
     }
 
     @Override

@@ -7,7 +7,7 @@ public class InterpreterErrorException extends Exception {
     }
 
     public InterpreterErrorException(InterpreterDataType dataType){
-        super("Unexpected error while interpreting at: " + dataType);
+        super("Error while interpreting:  " + dataType);
     }
 
 
